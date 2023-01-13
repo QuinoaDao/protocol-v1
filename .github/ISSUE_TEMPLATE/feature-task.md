@@ -7,16 +7,16 @@ assignees: ''
 
 ---
 
-**Describe the task**
-A clear and concise description of what you want to happen.
+## **Describe the task**
+<!-- A clear and concise description of what you want to happen. -->
 
 **Related task**
-Mention the related task.
+<!-- Mention the related task. -->
 
-**To do**
+## **To do**
 - [ ]
 - [ ]
 - [ ]
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+## **Additional context**
+<!-- Add any other context or screenshots about the feature request here. -->
