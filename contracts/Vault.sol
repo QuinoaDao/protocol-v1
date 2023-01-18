@@ -3,6 +3,6 @@ pragma solidity ^0.8.10;
 
 import "./IVault.sol";
 
-contract Vault is IVault {
+abstract contract Vault is IVault {
 
 }
