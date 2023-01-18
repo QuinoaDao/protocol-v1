@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
-
+ 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -39,7 +39,7 @@ interface IVault is IERC20, IERC20Metadata {
     function balanceOf(address owner) external view returns (uint256); // erc20 function
 
     function totalFloat() external view returns (uint256); 
-    function balanceOfAsset() external view returns(uint256); 
+    function balanceOfAsset(address assetAddress) external view returns(uint256); 
 
     function addAsset(address newAssetAddress) external; 
     function updateWeight(AssetParams[] memory newParams) external; 
