@@ -35,8 +35,8 @@ interface IProduct is IERC20, IERC20Metadata {
     );
 
     function totalAssets() external view returns (uint256);
-    function totalSupply() external view returns (uint256); // erc20 function
-    function balanceOf(address owner) external view returns (uint256); // erc20 function
+    // function totalSupply() external view returns (uint256); // erc20 function
+    // function balanceOf(address owner) external view returns (uint256); // erc20 function
 
     function totalFloat() external view returns (uint256); 
     function balanceOfAsset(address assetAddress) external view returns(uint256); 
