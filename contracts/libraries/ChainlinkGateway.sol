@@ -17,9 +17,6 @@ library ChainlinkGateway {
             /*uint80 answeredInRound*/
         ) = priceFeed.latestRoundData();
 
-        // price uint256으로 바꾸고 
-        // uint256 
-
         return uint(price) * (10**10);
     }
 }
