@@ -4,11 +4,13 @@ pragma solidity ^0.8.10;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-interface IVault is IERC20, IERC20Metadata {
+interface IProduct is IERC20, IERC20Metadata {
 
     struct AssetParams {
         address assetAddress;
+        address oracleAddress; // for chainlink price feed
         uint256 targetWeight;
+        int256 currentPrice; // when rebalancing -> update
     }
 
     struct StrategyParams {
