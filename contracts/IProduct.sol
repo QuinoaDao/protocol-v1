@@ -10,7 +10,7 @@ interface IProduct is IERC20, IERC20Metadata {
         address assetAddress;
         address oracleAddress; // for chainlink price feed
         uint256 targetWeight; // TODO type 조정 필요, 소숫점 관리 어떻게 할지 논의 필요. if targetWeight 25 => 이후 로직에서 100으로 항상 나눠줘야 함.
-        int256 currentPrice; // when rebalancing -> update
+        uint256 currentPrice; // when rebalancing -> update
     }
 
     struct StrategyParams {
@@ -46,8 +46,6 @@ interface IProduct is IERC20, IERC20Metadata {
     function balanceOf(address owner) external view returns (uint256); // erc20 function
 
     function totalFloat() external view returns (uint256); 
-    function balanceOfAsset(address assetAddress) external view returns(uint256); 
-
     function addAsset(address newAssetAddress) external; 
     function currentWeight() external returns(AssetParams[] memory); 
 

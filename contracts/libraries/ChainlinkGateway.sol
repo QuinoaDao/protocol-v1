@@ -7,7 +7,7 @@ library ChainlinkGateway {
     /**
      * Returns the latest price.
      */
-    function getLatestPrice(address oracleAddress) public view returns (int256) {
+    function getLatestPrice(address oracleAddress) public view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(oracleAddress);
         (
             /* uint80 roundID */,
@@ -17,6 +17,6 @@ library ChainlinkGateway {
             /*uint80 answeredInRound*/
         ) = priceFeed.latestRoundData();
 
-        return int(price) * (10**10);
+        return uint(price) * (10**10);
     }
 }
