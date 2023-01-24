@@ -2,6 +2,7 @@
 pragma solidity ^0.8.10;
 
 import "./IProduct.sol";
+import "./IStrategy.sol";
 import "./libraries/ChainlinkGateway.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -9,46 +10,9 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 abstract contract Product is ERC20, IProduct {
     using Math for uint256;
 
-    // struct AssetParams {
-    //     address assetAddress;
-    //     uint256 targetWeight;
-    // }
-
-    // struct StrategyParams {
-    //     address strategyAddress;
-    //     address assetAddress;
-    //     uint256 assetBalance;
-    // }
-
-    // // MUST be emitted when tokens are deposited into the vault via the mint and deposit methods
-    // event Deposit(
-    //     address indexed sender,
-    //     address indexed owner,
-    //     uint256 assets,
-    //     uint256 shares
-    // );
-
-    // // MUST be emitted when shares are withdrawn from the vault by a depositor in the redeem or withdraw methods.
-    // event Withdraw(
-    //     address indexed sender,
-    //     address indexed receiver,
-    //     address indexed owner,
-    //     uint256 assets,
-    //     uint256 share
-    // );
-
-    AssetParams[] public assets; // asset list 
-    StrategyParams[] public strategies; // strategy list
-
-    // erc20 state varibales
-    // mapping(address => uint256) private _balances;
-
-    // mapping(address => mapping(address => uint256)) private _allowances;
-
-    // uint256 private _totalSupply;
-
-    // string private _name;
-    // string private _symbol;
+    AssetParams[] public assets;
+    StrategyParams[] public strategies;
+    uint256 floatRatio;
 
     string private _dacName; // DB가 없어서 contract에서도 필요한 듯
     address private _dacAddress; // 애초에 필요
@@ -58,7 +22,7 @@ abstract contract Product is ERC20, IProduct {
         require(_msgSender()==_dacAddress);
         _;
     }
-
+        
     constructor(
         string memory name_, 
         string memory symbol_, 
@@ -73,7 +37,6 @@ abstract contract Product is ERC20, IProduct {
         _sinceDate = block.timestamp;
     }
 
-    // 사용할 asset들마다 decimal 체크 필요
     function decimals() public view virtual override(ERC20, IERC20Metadata) returns (uint8) {
         return 18;
     } 
@@ -90,57 +53,144 @@ abstract contract Product is ERC20, IProduct {
         return _sinceDate;
     }
 
-    function totalAssets() external view override returns (uint256) {
-
-    }
-    // function totalSupply() external view override returns (uint256){ // erc20 function
-
-    // } 
-    // function balanceOf(address owner) external view override returns (uint256){ // erc20 function
-
-    // }
-
-    function totalFloat() external view override returns (uint256){
-
-    }
-    function balanceOfAsset(address assetAddress) external view override returns(uint256){
-
+    // total values of tokens in float
+    function totalFloat() public view returns(uint256) {
+        uint256 totalValue = 0;
+        for (uint256 i=0; i < assets.length; i++) {
+            totalValue += balanceOfAsset(assets[i].assetAddress)*ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+        }
+        return totalValue;
     }
 
-    function addAsset(address newAssetAddress) external override {
-
-    }
-    function updateWeight(AssetParams[] memory newParams) external override{
-
-    }
-    function currentWeight() external override returns(AssetParams[] memory){
-
-    }
-    function checkAsset(address assetAddress) external override returns (bool isExist){
-
+    function checkAsset(address _tokenAddress) public view returns (bool) {
+        for (uint i = 0; i < assets.length; i++) {
+            if(assets[i].assetAddress == _tokenAddress) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    function maxDeposit(address receiver) external view override returns (uint256){ // for deposit
-
-    }
-    function maxWithdraw(address owner) external view override returns (uint256){ // for withdraw
-    }
-
-    function withdraw(address assetAddress, uint256 assetAmount, address receiver, address owner) external override returns (uint256 shares){
-
-    }
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external override returns (uint256 shares){
-
-    }
-    function rebalance() external override{
-
+    function getPortfolioValue() public view returns (uint256) {
+        // TODO calculate total values of assets in this product
+        // get values from strategies and add it to the float
+        uint256 portfolioValue = 0;
+        for (uint256 i=0; i < assets.length; i++) {
+            portfolioValue += getAssetValue(assets[i].assetAddress);
+        }
+        return portfolioValue;
     }
 
-    // strategy와 상호작용
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override{
+    function getAssetValue(address assetAddress) public view returns (uint256) {
+        require(checkAsset(assetAddress), "Asset Doesn't Exist");
 
+        // TODO get asset values of each asset
+        // considering float and assets in strategy
+        // 1. get asset amount from strategies related
+            // TODO StrategyParams에서 가져오는지 또는 strategies의 totalAsset() 불러오는지 결정 필요. 만약 전자라면 언제 Param 업데이트 해아하는지 결정 필요.
+        // 2. add it the float amount of that token
+        // uint256 floatAmount = balanceOfAsset(assetAddress);
+        // 3. get values by multiplying the asset price
     }
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override{
+
+    /// @notice Token Amount of float token corresponding to param. 
+    // TODO float이 아닌 float + Strategy 내에 있는 token합으로 바꿔야 할듯.
+    function balanceOfAsset(address assetAddress) public view returns (uint256) {
+        require(checkAsset(assetAddress), "Asset Doesn't Exist");
+        // uint256 strategyAsset
+        uint256 totalAsset = IERC20(assetAddress).balanceOf(address(this));
+        for (uint i = 0; i < strategies.length; i++) {
+            if(strategies[i].assetAddress == assetAddress) {
+                totalAsset += IStrategy(strategies[i].strategyAddress).totalAssets();
+            }
+        }
+    return totalAsset;
+        // return IERC20(assetAddress).balanceOf(address(this)) + strategyAsset;
+    }
+
+    // TODO addAsset 이후에 updateWeight호출 필요해보임 -> 관리 이슈 논의 필요
+    function addAsset(address newAssetAddress, address newOracleAddress) external {
+        require(!checkAsset(newAssetAddress), "Asset Already Exists");
+        assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); // TODO default target weight, default currentPrice
+    }
+
+    function updateWeight(AssetParams[] memory newParams) public {
+        for (uint i = 0; i < newParams.length; i++) {
+            bool found = false;
+            for (uint j = 0; j < assets.length; j++) {
+                if(assets[j].assetAddress == newParams[i].assetAddress) {
+                    assets[j] = newParams[i];
+                    found = true;
+                    break;
+                    }
+                }
+        require(found, "Asset not found");
+        }
+    }
+
+    function currentWeight() external view returns(AssetParams[] memory) {
+        return assets;
+    }
+
+    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
+        require(checkAsset(assetAddress), "Asset not found");
         
+        // TODO
+        // Deposit Logic 
+
+        emit Deposit(msg.sender, receiver, assetAmount, shares);
+        return shares;
     }
+
+    function withdraw(address assetAddress, uint256 assetAmount, address receiver, address owner) external returns (uint256 shares) {
+        require(checkAsset(assetAddress), "Asset not found");
+        
+        // TODO
+        // Withdraw Logic, 
+        // float check
+        // asset balance substracted
+        // Transfer to user
+        // burn share
+        
+        emit Withdraw(msg.sender, receiver, owner, assetAmount, shares);
+        return shares;
+    }
+
+    function rebalance() external {
+        uint256 portfolioValue = 0;
+        for (uint i = 0; i < assets.length; i++) {
+            assets[i].currentPrice = ChainlinkGateway.getLatestPrice(assets[i].assetAddress);
+            portfolioValue += getAssetValue(assets[i].assetAddress);
+        }
+
+        for(uint i=0; i < assets.length; i++){
+            uint256 targetBalance = (assets[i].targetWeight * portfolioValue) / assets[i].currentPrice;
+            uint256 currentBalance = balanceOfAsset(assets[i].assetAddress);
+            if (currentBalance > targetBalance) {
+                // Sell
+                // float으로 충분할 경우
+                uint256 sellAmount = currentBalance - targetBalance;
+                
+                // float으로 부족할 경우
+                    
+                // withdrawFromStrategy()
+                
+            }
+            else if (currentBalance < targetBalance) {
+                // Buy
+                // float으로 충분할 경우
+                uint256 buyAmount = targetBalance - currentBalance;
+
+                // float으로 부족할 경우
+            }
+
+            // depositIntoStrategy()
+
+            
+        }
+        
+        // emit Rebalance(block.timestamp);
+    }
+
+
 }
