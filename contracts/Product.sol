@@ -2,6 +2,7 @@
 pragma solidity ^0.8.10;
 
 import "./IProduct.sol";
+import "./IStrategy.sol";
 import "./libraries/ChainlinkGateway.sol";
 
 abstract contract Product is IProduct {
@@ -60,6 +61,13 @@ abstract contract Product is IProduct {
     function balanceOfAsset(address assetAddress) public view returns (uint256) {
         require(checkAsset(assetAddress), "Asset Doesn't Exist");
         // uint256 strategyAsset
+        uint256 totalAsset = IERC20(assetAddress).balanceOf(address(this));
+        for (uint i = 0; i < strategies.length; i++) {
+            if(strategies[i].assetAddress == assetAddress) {
+                totalAsset += IStrategy(strategies[i].strategyAddress).totalAssets();
+            }
+        }
+    return totalAsset;
         // return IERC20(assetAddress).balanceOf(address(this)) + strategyAsset;
     }
 
