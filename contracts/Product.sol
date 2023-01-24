@@ -192,5 +192,4 @@ abstract contract Product is ERC20, IProduct {
         // emit Rebalance(block.timestamp);
     }
 
-
 }
