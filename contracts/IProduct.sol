@@ -46,8 +46,12 @@ interface IProduct is IERC20, IERC20Metadata {
     function balanceOf(address owner) external view returns (uint256); // erc20 function
 
     function totalFloat() external view returns (uint256); 
-    function addAsset(address newAssetAddress) external; 
+    function balanceOfAsset(address assetAddress) external view returns(uint256);
+    function addAsset(address newAssetAddress) external;
+    function updateWeight(AssetParams[] memory newParams) external; 
     function currentWeight() external returns(AssetParams[] memory); 
+    function checkAsset(address assetAddress) external returns (bool isExist); 
+    function getPortfolioValue() external view returns(uint256);
 
     function maxDeposit(address receiver) external view returns (uint256); // for deposit
     function maxWithdraw(address owner) external view returns (uint256); // for withdraw
