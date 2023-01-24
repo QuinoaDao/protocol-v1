@@ -2,10 +2,11 @@
 pragma solidity ^0.8.10;
 
 import "./IProduct.sol";
+import "./libraries/ChainlinkGateway.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract Product is ERC20, IProduct {
+abstract contract Product is ERC20, IProduct {
     using Math for uint256;
 
     // struct AssetParams {

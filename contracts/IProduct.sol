@@ -8,7 +8,9 @@ interface IProduct is IERC20, IERC20Metadata {
 
     struct AssetParams {
         address assetAddress;
+        address oracleAddress; // for chainlink price feed
         uint256 targetWeight;
+        int256 currentPrice; // when rebalancing -> update
     }
 
     struct StrategyParams {
