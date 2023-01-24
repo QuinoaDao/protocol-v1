@@ -104,7 +104,7 @@ abstract contract Product is ERC20, IProduct {
                 totalAsset += IStrategy(strategies[i].strategyAddress).totalAssets();
             }
         }
-    return totalAsset;
+        return totalAsset;
         // return IERC20(assetAddress).balanceOf(address(this)) + strategyAsset;
     }
 
@@ -191,5 +191,23 @@ abstract contract Product is ERC20, IProduct {
         
         // emit Rebalance(block.timestamp);
     }
+
+    // function totalSupply() external view returns (uint256); // erc20 function
+    // function balanceOf(address owner) external view returns (uint256); // erc20 function
+
+
+    function maxDeposit(address receiver) external view override returns (uint256){} // for deposit
+    function maxWithdraw(address owner) external view override returns (uint256){} // for withdraw
+
+    // strategy와 상호작용
+    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {} 
+    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {}
+
+
+    // 보류
+    function convertToShares(uint256 assetAmount) external view override returns(uint256 shareAmount) {}
+    function convertToAssets(uint256 shareAmount) external view override returns (uint256 assetAmount){}
+    function previewWithdraw(uint256 assetAmount) external view override returns (uint256){}
+    function previewDeposit(uint256 assetAmount) external view override returns (uint256){}
 
 }

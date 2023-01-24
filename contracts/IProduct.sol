@@ -41,7 +41,6 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 time
     );
 
-    function totalAssets() external view returns (uint256);
     // function totalSupply() external view returns (uint256); // erc20 function
     // function balanceOf(address owner) external view returns (uint256); // erc20 function
 
@@ -66,8 +65,8 @@ interface IProduct is IERC20, IERC20Metadata {
 
 
     // 보류
-    function convertToShares(uint256 assets) external view returns(uint256 shares);
-    function convertToAssets(uint256 shares) external view returns (uint256 assets);
-    function previewWithdraw(uint256 assets) external view returns (uint256);
-    function previewDeposit(uint256 assets) external view returns (uint256);
+    function convertToShares(uint256 assetAmount) external view returns(uint256 shareAmount);
+    function convertToAssets(uint256 shareAmount) external view returns (uint256 assetAmount);
+    function previewWithdraw(uint256 assetAmount) external view returns (uint256);
+    function previewDeposit(uint256 assetAmount) external view returns (uint256);
 }
