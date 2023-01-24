@@ -8,9 +8,11 @@ abstract contract Product is IProduct {
 
     AssetParams[] public assets;
     StrategyParams[] public strategies;
+    uint256 floatRatio;
         
     constructor() {
         // approve
+        floatRatio = 40;
     }
 
     // total values of tokens in float
@@ -42,6 +44,8 @@ abstract contract Product is IProduct {
     }
 
     function getAssetValue(address assetAddress) public view returns (uint256) {
+        require(checkAsset(assetAddress), "Asset Doesn't Exist");
+
         // TODO get asset values of each asset
         // considering float and assets in strategy
         // 1. get asset amount from strategies related
@@ -52,8 +56,11 @@ abstract contract Product is IProduct {
     }
 
     /// @notice Token Amount of float token corresponding to param. 
+    // TODO float이 아닌 float + Strategy 내에 있는 token합으로 바꿔야 할듯.
     function balanceOfAsset(address assetAddress) public view returns (uint256) {
-        return IERC20(assetAddress).balanceOf(address(this));
+        require(checkAsset(assetAddress), "Asset Doesn't Exist");
+        // uint256 strategyAsset
+        // return IERC20(assetAddress).balanceOf(address(this)) + strategyAsset;
     }
 
     // TODO addAsset 이후에 updateWeight호출 필요해보임 -> 관리 이슈 논의 필요
@@ -105,23 +112,36 @@ abstract contract Product is IProduct {
     }
 
     function rebalance() external {
+        uint256 portfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
             assets[i].currentPrice = ChainlinkGateway.getLatestPrice(assets[i].assetAddress);
+            portfolioValue += getAssetValue(assets[i].assetAddress);
         }
 
-        uint256 portfolioValue = getPortfolioValue();
-
         for(uint i=0; i < assets.length; i++){
-            uint256 targetValue = (assets[i].targetWeight * portfolioValue) / 100;
-            // TODO getAssetValue
-            uint256 currentAssetValue = getAssetValue(assets[i].assetAddress);
-    
-            if(currentAssetValue > targetValue) {
+            uint256 targetBalance = (assets[i].targetWeight * portfolioValue) / assets[i].currentPrice;
+            uint256 currentBalance = balanceOfAsset(assets[i].assetAddress);
+            if (currentBalance > targetBalance) {
                 // Sell
+                // float으로 충분할 경우
+                uint256 sellAmount = currentBalance - targetBalance;
+                
+                // float으로 부족할 경우
+                    
+                // withdrawFromStrategy()
+                
             }
-            else if(currentAssetValue < targetValue) {
-                // Buy 
+            else if (currentBalance < targetBalance) {
+                // Buy
+                // float으로 충분할 경우
+                uint256 buyAmount = targetBalance - currentBalance;
+
+                // float으로 부족할 경우
             }
+
+            // depositIntoStrategy()
+
+            
         }
         
         emit Rebalance(block.timestamp);
