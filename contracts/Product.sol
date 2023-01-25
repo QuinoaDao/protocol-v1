@@ -18,6 +18,19 @@ abstract contract Product is ERC20, IProduct {
     address private _dacAddress; // 애초에 필요
     uint256 private _sinceDate;
 
+    // struct AssetParams {
+    //     address assetAddress;
+    //     address oracleAddress; // for chainlink price feed
+    //     uint256 targetWeight; // TODO type 조정 필요, 소숫점 관리 어떻게 할지 논의 필요. if targetWeight 25 => 이후 로직에서 100으로 항상 나눠줘야 함.
+    //     uint256 currentPrice; // when rebalancing -> update
+    // }
+
+    // struct StrategyParams {
+    //     address strategyAddress;
+    //     address assetAddress;
+    //     uint256 assetBalance;
+    // }
+
     modifier onlyDac{
         require(_msgSender()==_dacAddress);
         _;
@@ -57,6 +70,8 @@ abstract contract Product is ERC20, IProduct {
     function totalFloat() public view returns(uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
+            // (민균) 이 balanceOfAsset 지금 우멘이 float + strategy asset 으로 바꿔놨음 -> 그럼 여기서 float을 계산하지 않고 있는거 아닌가 ??
+            // 무슨 의도의 코드인지 잘 모르겠넹 float이 내가 생각햇던거랑 다른가 ?!
             totalValue += balanceOfAsset(assets[i].assetAddress)*ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
         }
         return totalValue;
@@ -71,6 +86,7 @@ abstract contract Product is ERC20, IProduct {
         return false;
     }
 
+    // (민균) 이게 전체 float + strategy 인듯 ? (dollar 기준)
     function getPortfolioValue() public view returns (uint256) {
         // TODO calculate total values of assets in this product
         // get values from strategies and add it to the float
@@ -81,6 +97,7 @@ abstract contract Product is ERC20, IProduct {
         return portfolioValue;
     }
 
+    // (민균) asset 1개 당 float + strategy (dollar 기준)
     function getAssetValue(address assetAddress) public view returns (uint256) {
         require(checkAsset(assetAddress), "Asset Doesn't Exist");
 
@@ -119,12 +136,12 @@ abstract contract Product is ERC20, IProduct {
             bool found = false;
             for (uint j = 0; j < assets.length; j++) {
                 if(assets[j].assetAddress == newParams[i].assetAddress) {
-                    assets[j] = newParams[i];
+                    assets[j] = newParams[i]; // (민균) current price에 혼동이 오려나 ? 그냥 weight만 update하는 방식으로 바꿔야 하나 싶음
                     found = true;
                     break;
                     }
                 }
-        require(found, "Asset not found");
+            require(found, "Asset not found");
         }
     }
 
@@ -168,7 +185,7 @@ abstract contract Product is ERC20, IProduct {
             uint256 currentBalance = balanceOfAsset(assets[i].assetAddress);
             if (currentBalance > targetBalance) {
                 // Sell
-                // float으로 충분할 경우
+                // float으로 충분할 경우 // (민균) 지금 currentBalance가 float에 대한 양이 아니지 않나요 ?.. float + strategy 인뎅
                 uint256 sellAmount = currentBalance - targetBalance;
                 
                 // float으로 부족할 경우
