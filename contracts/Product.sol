@@ -58,15 +58,8 @@ abstract contract Product is ERC20, IProduct {
         return _sinceDate;
     }
 
-    ///@notice total values of tokens in float
-    function totalFloat() public view returns(uint256) {
-        uint256 totalValue = 0;
-        for (uint256 i=0; i < assets.length; i++) {
-            // (민균) 이 balanceOfAsset 지금 우멘이 float + strategy asset 으로 바꿔놨음 -> 그럼 여기서 float을 계산하지 않고 있는거 아닌가 ??
-            // 무슨 의도의 코드인지 잘 모르겠넹 float이 내가 생각햇던거랑 다른가 ?!
-            totalValue += balanceOfAsset(assets[i].assetAddress)*ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
-        }
-        return totalValue;
+    function currentFloatRatio() public view returns(uint256) {
+        return floatRatio;
     }
 
     function checkAsset(address _tokenAddress) public view returns (bool) {
@@ -159,7 +152,12 @@ abstract contract Product is ERC20, IProduct {
         }
     }
 
-    function currentWeight() external view returns(AssetParams[] memory) {
+    function updateFloatRatio(uint256 newFloatRatio) public {
+        require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio"); // 10만분율
+        floatRatio = newFloatRatio;
+    }
+
+    function currentAssets() external view returns(AssetParams[] memory) {
         return assets;
     }
 
