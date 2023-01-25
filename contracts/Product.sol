@@ -57,6 +57,55 @@ contract Product is ERC20, IProduct {
         floatRatio = floatRatio_;
     }
 
+    ///@notice Return current asset statistics.
+    function currentAssets() external view override returns(AssetParams[] memory) {
+        return assets;
+    }
+
+    ///@notice Add one underlying asset to be handled by the product. 
+    function addAsset(address newAssetAddress, address newOracleAddress) external override {
+        require(!checkAsset(newAssetAddress), "Asset Already Exists");
+        assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
+    }
+
+    ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
+    function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external override {
+        for (uint i = 0; i < assetAddresses.length; i++) {
+            bool found = false;
+            for (uint j = 0; j < assets.length; j++) {
+                if(assets[j].assetAddress == assetAddresses[i]) {
+                    require((assetWeights[i] >= 0) || (assetWeights[i] <= 100000), "Invalid asset target weight");
+                    assets[j].targetWeight = assetWeights[i];
+                    found = true;
+                    break;
+                    }
+                }
+            require(found, "Asset not found");
+        }
+    }
+
+    ///@notice update target oracle address when chainlink or other oracle platform changes address.
+    function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) external override {
+        for (uint i = 0; i < assetAddresses.length; i++) {
+            bool found = false;
+            for (uint j = 0; j < assets.length; j++) {
+                if(assets[j].assetAddress == assetAddresses[i]) {
+                    assets[j].oracleAddress = assetOracles[i];
+                    found = true;
+                    break;
+                    }
+                }
+            require(found, "Asset not found");
+        }
+    }
+
+    ///@notice Update target float ratio. It will reflect at the next rebalancing.
+    function updateFloatRatio(uint256 newFloatRatio) external override {
+        require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
+        floatRatio = newFloatRatio;
+    }
+
+
     ///@notice Returns decimals of the product share token.
     function decimals() public view virtual override(ERC20, IERC20Metadata) returns (uint8) {
         return 18;
@@ -118,18 +167,6 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    ///@notice Calculates the value of specific underlying assets the product holds.
-    function assetValue(address assetAddress) public view override returns (uint256) {
-        uint totalValue = 0;
-        for (uint256 i=0; i < assets.length; i++) {
-            if(assets[i].assetAddress == assetAddress) {
-                totalValue += assetBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
-                break;
-            }
-        }
-        return totalValue;
-    }
-
     ///@notice Calculates the total value of floats the product holds.
     ///It is recommended to call updateWeight method after calling this method.
     function totalFloatValue() public view override returns (uint256) {
@@ -140,52 +177,16 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    ///@notice Add one underlying asset to be handled by the product. 
-    function addAsset(address newAssetAddress, address newOracleAddress) external {
-        require(!checkAsset(newAssetAddress), "Asset Already Exists");
-        assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
-    }
-
-    ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
-    function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) public {
-        for (uint i = 0; i < assetAddresses.length; i++) {
-            bool found = false;
-            for (uint j = 0; j < assets.length; j++) {
-                if(assets[j].assetAddress == assetAddresses[i]) {
-                    require((assetWeights[i] >= 0) || (assetWeights[i] <= 100000), "Invalid asset target weight");
-                    assets[j].targetWeight = assetWeights[i];
-                    found = true;
-                    break;
-                    }
-                }
-            require(found, "Asset not found");
+    ///@notice Calculates the value of specific underlying assets the product holds.
+    function assetValue(address assetAddress) public view override returns (uint256) {
+        uint totalValue = 0;
+        for (uint256 i=0; i < assets.length; i++) {
+            if(assets[i].assetAddress == assetAddress) {
+                totalValue += assetBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+                break;
+            }
         }
-    }
-
-    ///@notice update target oracle address when chainlink or other oracle platform changes address.
-    function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) public {
-        for (uint i = 0; i < assetAddresses.length; i++) {
-            bool found = false;
-            for (uint j = 0; j < assets.length; j++) {
-                if(assets[j].assetAddress == assetAddresses[i]) {
-                    assets[j].oracleAddress = assetOracles[i];
-                    found = true;
-                    break;
-                    }
-                }
-            require(found, "Asset not found");
-        }
-    }
-
-    ///@notice Update target float ratio. It will reflect at the next rebalancing.
-    function updateFloatRatio(uint256 newFloatRatio) public {
-        require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
-        floatRatio = newFloatRatio;
-    }
-
-    ///@notice Return current asset statistics.
-    function currentAssets() external view returns(AssetParams[] memory) {
-        return assets;
+        return totalValue;
     }
 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
