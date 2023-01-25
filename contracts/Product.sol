@@ -64,24 +64,29 @@ contract Product is ERC20, IProduct {
 
     ///@notice Add one underlying asset to be handled by the product. 
     function addAsset(address newAssetAddress, address newOracleAddress) external override {
+        require(newAssetAddress!=address(0x0), "Invalid asset address");
+        require(newOracleAddress!=address(0x0), "Invalid oracle address");
         require(!checkAsset(newAssetAddress), "Asset Already Exists");
         assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external override {
+        uint256 sumOfWeight = 0;
         for (uint i = 0; i < assetAddresses.length; i++) {
             bool found = false;
             for (uint j = 0; j < assets.length; j++) {
                 if(assets[j].assetAddress == assetAddresses[i]) {
                     require((assetWeights[i] >= 0) || (assetWeights[i] <= 100000), "Invalid asset target weight");
                     assets[j].targetWeight = assetWeights[i];
+                    sumOfWeight += assetWeights[i];
                     found = true;
                     break;
-                    }
                 }
+            }
             require(found, "Asset not found");
         }
+        require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
     }
 
     ///@notice update target oracle address when chainlink or other oracle platform changes address.
@@ -99,7 +104,7 @@ contract Product is ERC20, IProduct {
         }
     }
 
-    ///@notice Update target float ratio. It will reflect at the next rebalancing.
+    ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
     function updateFloatRatio(uint256 newFloatRatio) external override {
         require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
         floatRatio = newFloatRatio;
@@ -188,6 +193,12 @@ contract Product is ERC20, IProduct {
         }
         return totalValue;
     }
+
+    ///@notice Returns the float value for one of the underlying assets of the product.
+    function assetFloatValue(address assetAddress) public view override returns(uint256) {
+        return assetFloatBalance(assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+    }
+
 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
         require(checkAsset(assetAddress), "Asset not found");

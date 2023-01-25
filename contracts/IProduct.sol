@@ -9,9 +9,9 @@ interface IProduct is IERC20, IERC20Metadata {
     ///@dev Product에서 사용하는 underlying asset 1개의 정보를 담아놓는 구조체.
     struct AssetParams {
         address assetAddress;
-        address oracleAddress; // for chainlink price feed
-        uint256 targetWeight; // 10만분율
-        uint256 currentPrice; // when rebalancing -> update
+        address oracleAddress;
+        uint256 targetWeight;
+        uint256 currentPrice;
     }
 
     ///@dev Product에서 사용하는 strategy 1개의 정보를 담아놓는 구조체.
@@ -59,6 +59,7 @@ interface IProduct is IERC20, IERC20Metadata {
     function portfolioValue() external view returns(uint256);
     function assetValue(address assetAddress) external view returns (uint256); 
     function totalFloatValue() external view returns (uint256);
+    function assetFloatValue(address assetAddress) external view returns(uint256);
     
     function maxDeposit(address receiver) external view returns (uint256);
     function maxWithdraw(address owner) external view returns (uint256);
