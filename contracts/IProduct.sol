@@ -16,7 +16,6 @@ interface IProduct is IERC20, IERC20Metadata {
     struct StrategyParams {
         address strategyAddress;
         address assetAddress;
-        uint256 assetBalance;
     }
 
     // MUST be emitted when tokens are deposited into the vault via the mint and deposit methods
@@ -44,13 +43,18 @@ interface IProduct is IERC20, IERC20Metadata {
     // function totalSupply() external view returns (uint256); // erc20 function
     // function balanceOf(address owner) external view returns (uint256); // erc20 function
 
-    function totalFloat() external view returns (uint256); 
-    function balanceOfAsset(address assetAddress) external view returns(uint256);
-    function addAsset(address newAssetAddress) external;
-    function updateWeight(AssetParams[] memory newParams) external; 
-    function currentWeight() external returns(AssetParams[] memory); 
+    function addAsset(address newAssetAddress, address newOracleAddress) external;
+    function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external; 
+    function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) external;
+    function currentAssets() external returns(AssetParams[] memory); 
     function checkAsset(address assetAddress) external returns (bool isExist); 
-    function getPortfolioValue() external view returns(uint256);
+
+    function assetBalance(address assetAddress) external view returns(uint256); // strategy + float (1 asset, amount)
+    function assetFloatBalance(address assetAddress) external view returns(uint256); // float (amount)
+
+    function portfolioValue() external view returns(uint256); // stratey + float (dollar)
+    function assetValue(address assetAddress) external view returns (uint256); // strategy + float (1 asset, dollar)
+    function totalFloatValue() external view returns (uint256); // float (all asset, dollar)
 
     function maxDeposit(address receiver) external view returns (uint256); // for deposit
     function maxWithdraw(address owner) external view returns (uint256); // for withdraw
