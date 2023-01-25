@@ -7,7 +7,7 @@ import "./libraries/ChainlinkGateway.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-abstract contract Product is ERC20, IProduct {
+contract Product is ERC20, IProduct {
     using Math for uint256;
 
     AssetParams[] public assets;
@@ -31,18 +31,28 @@ abstract contract Product is ERC20, IProduct {
     constructor(
         string memory name_, 
         string memory symbol_, 
-        string memory dacName_, 
         address dacAddress_, 
-        AssetParams[] memory assets_, 
+        string memory dacName_, 
+        address[] memory assetAddresses_, 
+        address[] memory oracleAddresses_,
         uint256 floatRatio_
         ) 
         ERC20 (name_, symbol_)
     {
-        _dacName = dacName_;
+        
+        _sinceDate = block.timestamp;
+
         require(dacAddress_ != address(0x0), "Invalid dac address");
         _dacAddress = dacAddress_;
-        _sinceDate = block.timestamp;
-        assets = assets_;
+        _dacName = dacName_;
+
+        
+        require(assetAddresses_.length == oracleAddresses_.length, "Invalid underlying asset parameters");
+        for (uint i=0; i<assetAddresses_.length; i++){
+            require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
+            assets.push(AssetParams(assetAddresses_[i], oracleAddresses_[i], 0, 0)); 
+        }
+
         require((floatRatio_ < 0) || (floatRatio_ > 100000), "Invalid float ratio");
         floatRatio = floatRatio_;
     }
