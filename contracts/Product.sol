@@ -66,7 +66,7 @@ abstract contract Product is ERC20, IProduct {
         return _sinceDate;
     }
 
-    // total values of tokens in float
+    ///@notice total values of tokens in float
     function totalFloat() public view returns(uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
@@ -88,8 +88,6 @@ abstract contract Product is ERC20, IProduct {
 
     // (민균) 이게 전체 float + strategy 인듯 ? (dollar 기준)
     function getPortfolioValue() public view returns (uint256) {
-        // TODO calculate total values of assets in this product
-        // get values from strategies and add it to the float
         uint256 portfolioValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
             portfolioValue += getAssetValue(assets[i].assetAddress);
@@ -104,31 +102,28 @@ abstract contract Product is ERC20, IProduct {
         // TODO get asset values of each asset
         // considering float and assets in strategy
         // 1. get asset amount from strategies related
-            // TODO StrategyParams에서 가져오는지 또는 strategies의 totalAsset() 불러오는지 결정 필요. 만약 전자라면 언제 Param 업데이트 해아하는지 결정 필요.
+            // strategies의 totalAsset() 불러오는지 결정 필요. 만약 전자라면 언제 Param 업데이트 해아하는지 결정 필요.
         // 2. add it the float amount of that token
         // uint256 floatAmount = balanceOfAsset(assetAddress);
         // 3. get values by multiplying the asset price
     }
 
     /// @notice Token Amount of float token corresponding to param. 
-    // TODO float이 아닌 float + Strategy 내에 있는 token합으로 바꿔야 할듯.
     function balanceOfAsset(address assetAddress) public view returns (uint256) {
         require(checkAsset(assetAddress), "Asset Doesn't Exist");
         // uint256 strategyAsset
-        uint256 totalAsset = IERC20(assetAddress).balanceOf(address(this));
+        uint256 totalBalance = IERC20(assetAddress).balanceOf(address(this));
         for (uint i = 0; i < strategies.length; i++) {
             if(strategies[i].assetAddress == assetAddress) {
-                totalAsset += IStrategy(strategies[i].strategyAddress).totalAssets();
+                totalBalance += IStrategy(strategies[i].strategyAddress).totalAssets();
             }
         }
-        return totalAsset;
-        // return IERC20(assetAddress).balanceOf(address(this)) + strategyAsset;
+        return totalBalance;
     }
 
-    // TODO addAsset 이후에 updateWeight호출 필요해보임 -> 관리 이슈 논의 필요
     function addAsset(address newAssetAddress, address newOracleAddress) external {
         require(!checkAsset(newAssetAddress), "Asset Already Exists");
-        assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); // TODO default target weight, default currentPrice
+        assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
     }
 
     function updateWeight(AssetParams[] memory newParams) public {
