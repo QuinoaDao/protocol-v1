@@ -9,7 +9,7 @@ interface IProduct is IERC20, IERC20Metadata {
     struct AssetParams {
         address assetAddress;
         address oracleAddress; // for chainlink price feed
-        uint256 targetWeight; // TODO type 조정 필요, 소숫점 관리 어떻게 할지 논의 필요. if targetWeight 25 => 이후 로직에서 100으로 항상 나눠줘야 함.
+        uint256 targetWeight; // 10만분율
         uint256 currentPrice; // when rebalancing -> update
     }
 
@@ -37,6 +37,8 @@ interface IProduct is IERC20, IERC20Metadata {
 
     // TODO add more argument;
     event Rebalance(
+        address indexed caller, 
+        AssetParams[] currentAssets,
         uint256 time
     );
 
