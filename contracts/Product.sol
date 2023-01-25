@@ -12,12 +12,17 @@ abstract contract Product is ERC20, IProduct {
 
     AssetParams[] public assets;
     StrategyParams[] public strategies;
-    uint256 floatRatio; // 10만분율
+    
+    ///@notice All ratios use per 100000. 
+    ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
+    uint256 floatRatio;
 
-    string private _dacName; // DB가 없어서 contract에서도 필요한 듯
-    address private _dacAddress; // 애초에 필요
+    string private _dacName; 
+    address private _dacAddress;
     uint256 private _sinceDate;
 
+    ///@notice DAC means the owner of the product.
+    ///Only dac member can call the rebalance method.
     modifier onlyDac{
         require(_msgSender()==_dacAddress);
         _;
@@ -28,10 +33,10 @@ abstract contract Product is ERC20, IProduct {
         string memory symbol_, 
         string memory dacName_, 
         address dacAddress_, 
-        AssetParams[] memory assets_, // 괜찮은가 ?
+        AssetParams[] memory assets_, 
         uint256 floatRatio_
         ) 
-        ERC20(name_, symbol_)
+        ERC20 (name_, symbol_)
     {
         _dacName = dacName_;
         require(dacAddress_ != address(0x0), "Invalid dac address");
@@ -42,26 +47,32 @@ abstract contract Product is ERC20, IProduct {
         floatRatio = floatRatio_;
     }
 
+    ///@notice Returns decimals of the product share token.
     function decimals() public view virtual override(ERC20, IERC20Metadata) returns (uint8) {
         return 18;
     } 
 
+    ///@notice Returns dac name.
     function dacName() public view returns(string memory) {
         return _dacName;
     }
 
+    ///@notice Returns dac address(typically equal to product deployer).
     function dacAddress() public view returns(address) {
         return _dacAddress;
     }
 
+    ///@notice Returns the date when the product was deployed in Unix timestamp format.
     function sinceDate() public view returns(uint256) {
         return _sinceDate;
     }
 
+    ///@notice Returns current target float ratio.
     function currentFloatRatio() public view returns(uint256) {
         return floatRatio;
     }
 
+    ///@notice Check if the asset address is the asset currently being handled in the product.
     function checkAsset(address _tokenAddress) public view returns (bool) {
         for (uint i = 0; i < assets.length; i++) {
             if(assets[i].assetAddress == _tokenAddress) {
@@ -71,13 +82,13 @@ abstract contract Product is ERC20, IProduct {
         return false;
     }
 
-    ///@notice float (amount)
+    ///@notice Returns the float amount for one of the underlying assets of the product.
     function assetFloatBalance(address assetAddress) public view override returns(uint256) {
         require(checkAsset(assetAddress), "Asset Doesn't Exist");
         return IERC20(assetAddress).balanceOf(address(this));
     }
 
-    ///@notice strategy + float (1 asset, amount)
+    ///@notice Calculates the whole amount for one of underlying assets the product holds.
     function assetBalance(address assetAddress) public view override returns(uint256) {
         uint256 totalBalance = assetFloatBalance(assetAddress);
         for (uint i = 0; i < strategies.length; i++) {
@@ -88,7 +99,7 @@ abstract contract Product is ERC20, IProduct {
         return totalBalance;
     }
 
-    ///@notice stratey + float (dollar)
+    ///@notice Calculates the total value of underlying assets the product holds.
     function portfolioValue() public view override returns(uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
@@ -97,7 +108,7 @@ abstract contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    ///@notice strategy + float (1 asset, dollar)
+    ///@notice Calculates the value of specific underlying assets the product holds.
     function assetValue(address assetAddress) public view override returns (uint256) {
         uint totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
@@ -109,7 +120,8 @@ abstract contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    ///@notice float (all asset, dollar)
+    ///@notice Calculates the total value of floats the product holds.
+    ///It is recommended to call updateWeight method after calling this method.
     function totalFloatValue() public view override returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
@@ -118,17 +130,19 @@ abstract contract Product is ERC20, IProduct {
         return totalValue;
     }
 
+    ///@notice Add one underlying asset to be handled by the product. 
     function addAsset(address newAssetAddress, address newOracleAddress) external {
         require(!checkAsset(newAssetAddress), "Asset Already Exists");
         assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
     }
 
+    ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) public {
         for (uint i = 0; i < assetAddresses.length; i++) {
             bool found = false;
             for (uint j = 0; j < assets.length; j++) {
                 if(assets[j].assetAddress == assetAddresses[i]) {
-                    require((assetWeights[i] >= 0) || (assetWeights[i] <= 100000), "Invalid asset target weight"); // 10만분율
+                    require((assetWeights[i] >= 0) || (assetWeights[i] <= 100000), "Invalid asset target weight");
                     assets[j].targetWeight = assetWeights[i];
                     found = true;
                     break;
@@ -138,6 +152,7 @@ abstract contract Product is ERC20, IProduct {
         }
     }
 
+    ///@notice update target oracle address when chainlink or other oracle platform changes address.
     function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) public {
         for (uint i = 0; i < assetAddresses.length; i++) {
             bool found = false;
@@ -152,11 +167,13 @@ abstract contract Product is ERC20, IProduct {
         }
     }
 
+    ///@notice Update target float ratio. It will reflect at the next rebalancing.
     function updateFloatRatio(uint256 newFloatRatio) public {
-        require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio"); // 10만분율
+        require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
         floatRatio = newFloatRatio;
     }
 
+    ///@notice Return current asset statistics.
     function currentAssets() external view returns(AssetParams[] memory) {
         return assets;
     }
@@ -223,14 +240,10 @@ abstract contract Product is ERC20, IProduct {
     function maxDeposit(address receiver) external view override returns (uint256){} // for deposit
     function maxWithdraw(address owner) external view override returns (uint256){} // for withdraw
 
-    // strategy와 상호작용
     function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {} 
     function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {}
 
     // 보류
     function convertToShares(uint256 assetAmount) external view override returns(uint256 shareAmount) {}
     function convertToAssets(uint256 shareAmount) external view override returns (uint256 assetAmount){}
-    function previewWithdraw(uint256 assetAmount) external view override returns (uint256){}
-    function previewDeposit(uint256 assetAmount) external view override returns (uint256){}
-
 }
