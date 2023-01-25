@@ -9,8 +9,8 @@ interface IProduct is IERC20, IERC20Metadata {
     struct AssetParams {
         address assetAddress;
         address oracleAddress; // for chainlink price feed
-        uint256 targetWeight;
-        int256 currentPrice; // when rebalancing -> update
+        uint256 targetWeight; // TODO type 조정 필요, 소숫점 관리 어떻게 할지 논의 필요. if targetWeight 25 => 이후 로직에서 100으로 항상 나눠줘야 함.
+        uint256 currentPrice; // when rebalancing -> update
     }
 
     struct StrategyParams {
@@ -36,17 +36,22 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 share
     );
 
+    // TODO add more argument;
+    event Rebalance(
+        uint256 time
+    );
+
     function totalAssets() external view returns (uint256);
     function totalSupply() external view returns (uint256); // erc20 function
     function balanceOf(address owner) external view returns (uint256); // erc20 function
 
     function totalFloat() external view returns (uint256); 
-    function balanceOfAsset(address assetAddress) external view returns(uint256); 
-
-    function addAsset(address newAssetAddress) external; 
+    function balanceOfAsset(address assetAddress) external view returns(uint256);
+    function addAsset(address newAssetAddress) external;
     function updateWeight(AssetParams[] memory newParams) external; 
     function currentWeight() external returns(AssetParams[] memory); 
     function checkAsset(address assetAddress) external returns (bool isExist); 
+    function getPortfolioValue() external view returns(uint256);
 
     function maxDeposit(address receiver) external view returns (uint256); // for deposit
     function maxWithdraw(address owner) external view returns (uint256); // for withdraw
