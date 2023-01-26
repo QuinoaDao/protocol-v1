@@ -46,6 +46,8 @@ interface IProduct is IERC20, IERC20Metadata {
 
     function currentAssets() external view returns(AssetParams[] memory); 
     function checkAsset(address assetAddress) external returns (bool isExist); 
+    function checkStrategy(address strategyAddress) external returns(bool isExist);
+    function addStrategy(address newStrategyAddress) external;
     function addAsset(address newAssetAddress, address newOracleAddress) external;
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external; 
     function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) external;
