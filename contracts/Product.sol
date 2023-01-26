@@ -12,18 +12,36 @@ contract Product is ERC20, IProduct {
 
     AssetParams[] public assets;
     StrategyParams[] public strategies;
+    address[] withdrawalQueue; // 최대 10개까지 가능하고 마지막은 0x0
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
     uint256 private _floatRatio;
 
+    bool private isActive;
+
     string private _dacName; 
     address private _dacAddress;
     uint256 private _sinceDate;
 
+    event ActivateProduct(
+        address indexed caller,
+        uint256 time
+    );
+
+     event DeactivateProduct(
+        address indexed caller,
+        uint256 time
+    );
+
+    event UpdateWithdrawalQueue(
+        address indexed caller, 
+        address[] newWithdrawalQueue,
+        uint256 time);
+
     ///@notice DAC means the owner of the product.
     ///Only dac member can call the rebalance method.
-    modifier onlyDac{
+    modifier onlyDac {
         require(_msgSender()==_dacAddress);
         _;
     }
@@ -41,12 +59,12 @@ contract Product is ERC20, IProduct {
     {
         
         _sinceDate = block.timestamp;
+        isActive = false;
 
         require(dacAddress_ != address(0x0), "Invalid dac address");
         _dacAddress = dacAddress_;
         _dacName = dacName_;
 
-        
         require(assetAddresses_.length == oracleAddresses_.length, "Invalid underlying asset parameters");
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
@@ -60,6 +78,11 @@ contract Product is ERC20, IProduct {
     ///@notice Return current asset statistics.
     function currentAssets() external view override returns(AssetParams[] memory) {
         return assets;
+    }
+
+    function addStrategy(address newStrategyAddress) external override onlyDac {
+        require(newStrategyAddress!=address(0x0), "Invalid strategy address");
+        strategies.push(StrategyParams(newStrategyAddress, IStrategy(newStrategyAddress).underlyingAsset()));
     }
 
     ///@notice Add one underlying asset to be handled by the product. 
@@ -112,7 +135,6 @@ contract Product is ERC20, IProduct {
         _floatRatio = newFloatRatio;
     }
 
-
     ///@notice Returns decimals of the product share token.
     function decimals() public view virtual override(ERC20, IERC20Metadata) returns (uint8) {
         return 18;
@@ -139,9 +161,18 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Check if the asset address is the asset currently being handled in the product.
-    function checkAsset(address _tokenAddress) public view returns (bool) {
+    function checkAsset(address _assetAddress) public view override returns (bool) {
         for (uint i = 0; i < assets.length; i++) {
-            if(assets[i].assetAddress == _tokenAddress) {
+            if(assets[i].assetAddress == _assetAddress) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function checkStrategy(address strategyAddress) public view override returns(bool) {
+        for (uint i=0; i<strategies.length; i++){
+            if(strategies[i].strategyAddress == strategyAddress) {
                 return true;
             }
         }
@@ -207,9 +238,52 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
+    function currentActivation() public view returns(bool) {
+        return isActive;
+    }
+
+    function activateProduct() external onlyDac {
+        require(!isActive);
+        
+        require(assets.length != 0);
+        require(withdrawalQueue.length != 0);
+        require(strategies.length != 0);
+        require(strategies.length == assets.length);
+
+        uint sumOfWeights = 0;
+        for(uint i=0; i<assets.length; i++) {
+            sumOfWeights += assets[i].targetWeight;
+        }
+        require(sumOfWeights == 100000);
+
+        isActive = true;
+
+        emit ActivateProduct(_msgSender(), block.timestamp);
+    }
+
+    function deactivateProduct() external onlyDac {
+        require(isActive);
+        // deactivate 상태일 때 불가능한 것들 생각해보기 -> require문 날려야 함
+        isActive = false;
+
+        emit DeactivateProduct(_msgSender(), block.timestamp);
+    }
+
+    function updateWithdrawalQueue(address[] memory newWithdrawalQueue) external onlyDac {
+        require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
+
+        for (uint i=0; i<newWithdrawalQueue.length; i++){
+            require(checkStrategy(newWithdrawalQueue[i]), "Strategy doesn't exist");
+        }
+
+        withdrawalQueue = newWithdrawalQueue;
+
+        emit UpdateWithdrawalQueue(_msgSender(), newWithdrawalQueue, block.timestamp);
+    }
 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
         require(checkAsset(assetAddress), "Asset not found");
+        require(isActive, "Product is disabled now");
         
         // TODO
         // Deposit Logic 
