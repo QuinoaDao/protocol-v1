@@ -197,7 +197,14 @@ contract Product is ERC20, IProduct {
 
     ///@notice Returns the float value for one of the underlying assets of the product.
     function assetFloatValue(address assetAddress) public view override returns(uint256) {
-        return assetFloatBalance(assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+        uint totalValue = 0;
+        for (uint256 i=0; i < assets.length; i++) {
+            if(assets[i].assetAddress == assetAddress) {
+                totalValue += assetFloatBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+                break;
+            }
+        }
+        return totalValue;
     }
 
 
