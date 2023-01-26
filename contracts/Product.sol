@@ -63,7 +63,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Add one underlying asset to be handled by the product. 
-    ///It is recommended to call updateWeight method after calling this method.
+    ///@dev It is recommended to call updateWeight method after calling this method.
     function addAsset(address newAssetAddress, address newOracleAddress) external override {
         require(newAssetAddress!=address(0x0), "Invalid asset address");
         require(newOracleAddress!=address(0x0), "Invalid oracle address");
@@ -148,13 +148,13 @@ contract Product is ERC20, IProduct {
         return false;
     }
 
-    ///@dev Returns the float amount for one of the underlying assets of the product.
+    ///@notice Returns the float amount for one of the underlying assets of the product.
     function assetFloatBalance(address assetAddress) public view override returns(uint256) {
         require(checkAsset(assetAddress), "Asset Doesn't Exist");
         return IERC20(assetAddress).balanceOf(address(this));
     }
 
-    ///@dev Calculates the whole amount for one of underlying assets the product holds.
+    ///@notice Calculates the whole amount for one of underlying assets the product holds.
     function assetBalance(address assetAddress) public view override returns(uint256) {
         uint256 totalBalance = assetFloatBalance(assetAddress);
         for (uint i = 0; i < strategies.length; i++) {
@@ -165,7 +165,7 @@ contract Product is ERC20, IProduct {
         return totalBalance;
     }
 
-    ///@dev Calculates the total value of underlying assets the product holds.
+    ///@notice Calculates the total value of underlying assets the product holds.
     function portfolioValue() public view override returns(uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
@@ -174,7 +174,7 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    ///@dev Calculates the total value of floats the product holds.
+    ///@notice Calculates the total value of floats the product holds.
     function totalFloatValue() public view override returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
@@ -183,7 +183,7 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    ///@dev Calculates the value of specific underlying assets the product holds.
+    ///@notice Calculates the value of specific underlying assets the product holds.
     function assetValue(address assetAddress) public view override returns (uint256) {
         uint totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
@@ -195,7 +195,7 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    ///@dev Returns the float value for one of the underlying assets of the product.
+    ///@notice Returns the float value for one of the underlying assets of the product.
     function assetFloatValue(address assetAddress) public view override returns(uint256) {
         return assetFloatBalance(assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
     }
