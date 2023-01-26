@@ -6,20 +6,21 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IProduct is IERC20, IERC20Metadata {
 
+    ///@dev Product에서 사용하는 underlying asset 1개의 정보를 담아놓는 구조체.
     struct AssetParams {
         address assetAddress;
-        address oracleAddress; // for chainlink price feed
-        uint256 targetWeight; // TODO type 조정 필요, 소숫점 관리 어떻게 할지 논의 필요. if targetWeight 25 => 이후 로직에서 100으로 항상 나눠줘야 함.
-        uint256 currentPrice; // when rebalancing -> update
+        address oracleAddress;
+        uint256 targetWeight;
+        uint256 currentPrice;
     }
 
+    ///@dev Product에서 사용하는 strategy 1개의 정보를 담아놓는 구조체.
     struct StrategyParams {
         address strategyAddress;
         address assetAddress;
-        uint256 assetBalance;
     }
 
-    // MUST be emitted when tokens are deposited into the vault via the mint and deposit methods
+    ///@dev MUST be emitted when tokens are deposited into the vault via the deposit methods
     event Deposit(
         address indexed sender,
         address indexed owner,
@@ -27,7 +28,7 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 shares
     );
 
-    // MUST be emitted when shares are withdrawn from the vault by a depositor in the redeem or withdraw methods.
+    ///@dev MUST be emitted when shares are withdrawn from the vault by a depositor in the withdraw methods.
     event Withdraw(
         address indexed sender,
         address indexed receiver,
@@ -36,38 +37,40 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 share
     );
 
-    // TODO add more argument;
+    ///@dev Must be emitted when rebalancing occure via the rebalance methods
     event Rebalance(
+        address indexed caller, 
+        AssetParams[] currentAssets,
         uint256 time
     );
 
-    function totalAssets() external view returns (uint256);
-    function totalSupply() external view returns (uint256); // erc20 function
-    function balanceOf(address owner) external view returns (uint256); // erc20 function
-
-    function totalFloat() external view returns (uint256); 
-    function balanceOfAsset(address assetAddress) external view returns(uint256);
-    function addAsset(address newAssetAddress) external;
-    function updateWeight(AssetParams[] memory newParams) external; 
-    function currentWeight() external returns(AssetParams[] memory); 
+    function currentAssets() external view returns(AssetParams[] memory); 
     function checkAsset(address assetAddress) external returns (bool isExist); 
-    function getPortfolioValue() external view returns(uint256);
+    function addAsset(address newAssetAddress, address newOracleAddress) external;
+    function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external; 
+    function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) external;
+    function updateFloatRatio(uint256 newFloatRatio) external;
 
-    function maxDeposit(address receiver) external view returns (uint256); // for deposit
-    function maxWithdraw(address owner) external view returns (uint256); // for withdraw
+    ///@notice Functions using the balance keyword return asset's balances(amount)
+    function assetBalance(address assetAddress) external view returns(uint256); 
+    function assetFloatBalance(address assetAddress) external view returns(uint256); 
+
+    ///@notice Functions that include the value keyword return values reflecting the market price of that asset
+    function portfolioValue() external view returns(uint256);
+    function assetValue(address assetAddress) external view returns (uint256); 
+    function totalFloatValue() external view returns (uint256);
+    function assetFloatValue(address assetAddress) external view returns(uint256);
+    
+    function maxDeposit(address receiver) external view returns (uint256);
+    function maxWithdraw(address owner) external view returns (uint256);
 
     function withdraw(address assetAddress, uint256 assetAmount, address receiver, address owner) external returns (uint256 shares); 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares); 
     function rebalance() external;
 
-    // strategy와 상호작용
     function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external; 
     function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external; 
 
-
-    // 보류
-    function convertToShares(uint256 assets) external view returns(uint256 shares);
-    function convertToAssets(uint256 shares) external view returns (uint256 assets);
-    function previewWithdraw(uint256 assets) external view returns (uint256);
-    function previewDeposit(uint256 assets) external view returns (uint256);
+    function convertToShares(uint256 assetAmount) external view returns(uint256 shareAmount);
+    function convertToAssets(uint256 shareAmount) external view returns (uint256 assetAmount);
 }
