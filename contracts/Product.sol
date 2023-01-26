@@ -15,7 +15,7 @@ contract Product is ERC20, IProduct {
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
-    uint256 floatRatio;
+    uint256 private _floatRatio;
 
     string private _dacName; 
     address private _dacAddress;
@@ -54,7 +54,7 @@ contract Product is ERC20, IProduct {
         }
 
         require((floatRatio_ < 0) || (floatRatio_ > 100000), "Invalid float ratio");
-        floatRatio = floatRatio_;
+        _floatRatio = floatRatio_;
     }
 
     ///@notice Return current asset statistics.
@@ -107,7 +107,7 @@ contract Product is ERC20, IProduct {
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
     function updateFloatRatio(uint256 newFloatRatio) external override {
         require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
-        floatRatio = newFloatRatio;
+        _floatRatio = newFloatRatio;
     }
 
 
@@ -133,7 +133,7 @@ contract Product is ERC20, IProduct {
 
     ///@notice Returns current target float ratio.
     function currentFloatRatio() public view returns(uint256) {
-        return floatRatio;
+        return _floatRatio;
     }
 
     ///@notice Check if the asset address is the asset currently being handled in the product.
