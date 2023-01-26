@@ -95,6 +95,7 @@ contract Product is ERC20, IProduct {
             bool found = false;
             for (uint j = 0; j < assets.length; j++) {
                 if(assets[j].assetAddress == assetAddresses[i]) {
+                    require(assetOracles[i] != address(0x0), "Invalid underlying asset address");
                     assets[j].oracleAddress = assetOracles[i];
                     found = true;
                     break;
