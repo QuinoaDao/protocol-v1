@@ -53,7 +53,7 @@ contract Product is ERC20, IProduct {
             assets.push(AssetParams(assetAddresses_[i], oracleAddresses_[i], 0, 0)); 
         }
 
-        require((floatRatio_ < 0) || (floatRatio_ > 100000), "Invalid float ratio");
+        require((floatRatio_ >= 0) || (floatRatio_ <= 100000), "Invalid float ratio");
         _floatRatio = floatRatio_;
     }
 
