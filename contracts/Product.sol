@@ -238,7 +238,7 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    function currentActivation() public view returns(bool) {
+    function checkActivation() public view returns(bool) {
         return isActive;
     }
 
@@ -282,11 +282,19 @@ contract Product is ERC20, IProduct {
     }
 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
-        require(checkAsset(assetAddress), "Asset not found");
         require(isActive, "Product is disabled now");
-        
-        // TODO
-        // Deposit Logic 
+        require(checkAsset(assetAddress), "Asset not found");
+        // deposit 양 maxDeposit이랑 비교 -> 100달러가 상한선
+
+        // current price 가져오기
+        // max deposit 계산 후 require
+
+        // uint256 shares = previewDeposit(assets); // dollar 기준 가격으로 share 양 계산하기
+        // require(shares > 0, "Vault: deposit less than minimum");
+
+        // SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);
+        // safeERC20이랑 그냥 ERC20 차이점 분석 필요
+        // _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assetAmount, shares);
         return shares;
