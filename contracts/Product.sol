@@ -71,6 +71,12 @@ contract Product is ERC20, IProduct {
         assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
     }
 
+    function addStrategy(address assetAddress, address strategyAddress) external {
+        require(checkAsset(assetAddress), "Asset Doesn't Exist");
+        require(strategyAddress!=address(0x0), "Invalid Strategy address");
+        strategies[assetAddress] = StrategyParams(strategyAddress, assetAddress);
+    }
+
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external override {
         uint256 sumOfWeight = 0;
@@ -197,7 +203,7 @@ contract Product is ERC20, IProduct {
 
     ///@notice Returns the float value for one of the underlying assets of the product.
     function assetFloatValue(address assetAddress) public view override returns(uint256) {
-        return assetFloatBalance(assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+        // return assetFloatBalance(assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
     }
 
 
@@ -232,39 +238,46 @@ contract Product is ERC20, IProduct {
             portfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
         }
 
+
+        // SELL
         for(uint i=0; i < assets.length; i++){
-            uint256 targetBalance = (assets[i].targetWeight * portfolioValue) / assets[i].currentPrice;
-            uint256 currentBalance = assetFloatBalance(assets[i].assetAddress); // float balance
-            if (currentBalance > targetBalance) {
-                // Sell
+            uint256 targetBalance = ((assets[i].targetWeight / 100000) * portfolioValue) / assets[i].currentPrice;
+            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress].strategyAddress);
+            if (currentBalance > targetBalance*(1 + _deviationThreshold / 100000)) {
                 uint256 sellAmount = currentBalance - targetBalance;
+                redeemFromStrategy(address(assetStrategy), sellAmount);
                 
-                // float으로 부족할 경우
-                    
-                // withdrawFromStrategy()
+                // swap to underlying stablecoin
                 
             }
-            else if (currentBalance < targetBalance) {
-                // Buy
-                // float으로 충분할 경우
+        }
+
+        // BUY
+        for(uint i=0; i < assets.length; i++) {
+            uint256 targetBalance = ((assets[i].targetWeight / 100000) * portfolioValue) / assets[i].currentPrice;
+            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress].strategyAddress);
+            if (currentBalance < targetBalance*(1 - _deviationThreshold / 100000)) {
                 uint256 buyAmount = targetBalance - currentBalance;
 
-                // float으로 부족할 경우
+                // swap to underlying stablecoin
+                
             }
-
-            // depositIntoStrategy()
-
-            
+            uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
+            if(newFloatBalance > targetBalance*_floatRatio){
+                depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio);
+            } 
         }
         
-        // emit Rebalance(block.timestamp);
+        // emit Rebalance(address(this), currentAssets(), block.timestamp);
     }
 
     function maxDeposit(address receiver) external view override returns (uint256){} // for deposit
     function maxWithdraw(address owner) external view override returns (uint256){} // for withdraw
 
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {} 
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {}
+    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal {} 
+    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal {}
 
     // 보류
     function convertToShares(uint256 assetAmount) external view override returns(uint256 shareAmount) {}
