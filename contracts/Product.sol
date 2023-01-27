@@ -11,11 +11,13 @@ contract Product is ERC20, IProduct {
     using Math for uint256;
 
     AssetParams[] public assets;
-    StrategyParams[] public strategies;
+    // StrategyParams[] public strategies;
+    mapping (address => StrategyParams) strategies;
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
     uint256 private _floatRatio;
+    uint256 private _deviationThreshold;
 
     string private _dacName; 
     address private _dacAddress;
@@ -35,7 +37,8 @@ contract Product is ERC20, IProduct {
         string memory dacName_, 
         address[] memory assetAddresses_, 
         address[] memory oracleAddresses_,
-        uint256 floatRatio_
+        uint256 floatRatio_,
+        uint256 deviationThreshold_
         ) 
         ERC20 (name_, symbol_)
     {
@@ -55,6 +58,9 @@ contract Product is ERC20, IProduct {
 
         require((floatRatio_ >= 0) || (floatRatio_ <= 100000), "Invalid float ratio");
         _floatRatio = floatRatio_;
+        
+        require((deviationThreshold_ >= 0) || (deviationThreshold_ <= 10000), "Invalid Rebalance Threshold");
+        _deviationThreshold = deviationThreshold_;
     }
 
     ///@notice Return current asset statistics.
@@ -118,6 +124,12 @@ contract Product is ERC20, IProduct {
         _floatRatio = newFloatRatio;
     }
 
+    ///@notice Update rebalance threshold. It will reflect at the next rebalancing or withdrawal.
+    function updatedeviationThreshold(uint256 newDeviationThreshold) external override {
+        require((newDeviationThreshold >= 0) || (newDeviationThreshold <= 10000), "Invalid Rebalance Threshold");
+        _deviationThreshold = newDeviationThreshold;
+    }
+
 
     ///@notice Returns decimals of the product share token.
     function decimals() public view virtual override(ERC20, IERC20Metadata) returns (uint8) {
@@ -163,11 +175,8 @@ contract Product is ERC20, IProduct {
     ///@notice Calculates the whole amount for one of underlying assets the product holds.
     function assetBalance(address assetAddress) public view override returns(uint256) {
         uint256 totalBalance = assetFloatBalance(assetAddress);
-        for (uint i = 0; i < strategies.length; i++) {
-            if(strategies[i].assetAddress == assetAddress) {
-                totalBalance += IStrategy(strategies[i].strategyAddress).totalAssets();
-            }
-        }
+        IStrategy assetStrategy = IStrategy(strategies[assetAddress].strategyAddress);
+        totalBalance += assetStrategy.totalAssets();
         return totalBalance;
     }
 
