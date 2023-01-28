@@ -10,11 +10,6 @@ contract UsdPriceModule is Ownable {
     // mapping base -> oracle (USD 고정)
     mapping(address => address) private priceFeeds;
 
-    // get function
-    function getUsdPriceFeed(address _asset) public view returns(address) {
-        return priceFeeds[_asset];
-    }
-
     // mapping 추가
     function addUsdPriceFeed(address _asset, address _priceFeed) external onlyOwner {
         require(priceFeeds[_asset] == address(0));
@@ -26,9 +21,14 @@ contract UsdPriceModule is Ownable {
         require(priceFeeds[_asset] != address(0));
         priceFeeds[_asset] = _priceFeed;
     }
-    
-    // token 1개 usd price 반환 -> decimal 8
-    function getAssetUsdPrice(address _asset) public view returns(uint256) {
+
+    // get function
+    function getUsdPriceFeed(address _asset) public view returns(address) {
+        return priceFeeds[_asset];
+    }
+
+    // token 1개 usd price 반환 -> 8 decimals
+    function getLatestPrice(address _asset) public view returns(uint256) {
         require(priceFeeds[_asset] != address(0), "Unsupported token");
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeeds[_asset]);
         (, int price, , , ) = priceFeed.latestRoundData();
@@ -36,9 +36,18 @@ contract UsdPriceModule is Ownable {
         return uint256(price);
     }
 
-    // latestRoundData(address base, address quote)
+    // token 1개 usd price 반환 -> 18 decimals
+    function getAssetUsdPrice(address _asset) public view returns(uint256) {
+        require(priceFeeds[_asset] != address(0), "Unsupported token");
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeeds[_asset]);
+        (, int price, , , ) = priceFeed.latestRoundData();
+
+        return uint256(price) * (10**10);
+    }
+
+    // latestRoundData(address base, address quote) -> 18 decimals
     function getAssetUsdValue(address _asset, uint256 _amount) public view returns(uint256) {
-        uint256 assetPrice = getAssetUsdPrice(_asset);
+        uint256 assetPrice = getLatestPrice(_asset);
         uint256 assetDecimals = IERC20Metadata(_asset).decimals();
         if(assetDecimals < 10) { // asset decmals가 10보다 더 작은 경우 ex. USDC, USDT
             return assetPrice * _amount * (10**(10-assetDecimals));
