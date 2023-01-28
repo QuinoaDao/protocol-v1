@@ -3,7 +3,7 @@ pragma solidity ^0.8.10;
 
 import "./IProduct.sol";
 import "./IStrategy.sol";
-import "./libraries/ChainlinkGateway.sol";
+import "./UsdPriceModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -23,6 +23,8 @@ contract Product is ERC20, IProduct {
     string private _dacName; 
     address private _dacAddress;
     uint256 private _sinceDate;
+
+    UsdPriceModule private _usdPriceModule;
 
     event ActivateProduct(
         address indexed caller,
@@ -51,6 +53,7 @@ contract Product is ERC20, IProduct {
         string memory symbol_, 
         address dacAddress_, 
         string memory dacName_, 
+        address memory usdPriceModule_,
         address[] memory assetAddresses_, 
         address[] memory oracleAddresses_,
         uint256 floatRatio_
@@ -65,6 +68,9 @@ contract Product is ERC20, IProduct {
         _dacAddress = dacAddress_;
         _dacName = dacName_;
 
+        require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
+        _usdPriceModule = UsdPriceModule(usdPriceModule_);
+
         require(assetAddresses_.length == oracleAddresses_.length, "Invalid underlying asset parameters");
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
@@ -78,6 +84,10 @@ contract Product is ERC20, IProduct {
     ///@notice Return current asset statistics.
     function currentAssets() external view override returns(AssetParams[] memory) {
         return assets;
+    }
+
+    function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
+        _usdPriceModule = UsdPriceModule(newUsdPriceModule);
     }
 
     function addStrategy(address newStrategyAddress) external override onlyDac {
@@ -200,7 +210,7 @@ contract Product is ERC20, IProduct {
     function portfolioValue() public view override returns(uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
-            totalValue += assetBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+            totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetBalance(assets[i].assetAddress));
         }
         return totalValue;
     }
@@ -209,7 +219,7 @@ contract Product is ERC20, IProduct {
     function totalFloatValue() public view override returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
-            totalValue += assetFloatBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+            totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetFloatBalance(assets[i].assetAddress));
         }
         return totalValue;
     }
@@ -219,7 +229,7 @@ contract Product is ERC20, IProduct {
         uint totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
             if(assets[i].assetAddress == assetAddress) {
-                totalValue += assetBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+                totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetBalance(assets[i].assetAddress));
                 break;
             }
         }
@@ -231,7 +241,7 @@ contract Product is ERC20, IProduct {
         uint totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
             if(assets[i].assetAddress == assetAddress) {
-                totalValue += assetFloatBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+                totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetFloatBalance(assets[i].assetAddress));
                 break;
             }
         }
@@ -317,7 +327,7 @@ contract Product is ERC20, IProduct {
     function rebalance() external {
         uint256 portfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
-            assets[i].currentPrice = ChainlinkGateway.getLatestPrice(assets[i].assetAddress);
+            assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
             portfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
         }
 
