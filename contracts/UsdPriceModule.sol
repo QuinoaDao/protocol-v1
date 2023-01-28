@@ -40,18 +40,15 @@ contract UsdPriceModule is Ownable {
     function getAssetUsdValue(address _asset, uint256 _amount) public view returns(uint256) {
         uint256 assetPrice = getAssetUsdPrice(_asset);
         uint256 assetDecimals = IERC20Metadata(_asset).decimals();
-        if(assetDecimals < 18) { // asset decmals가 더 작은 경우 ex. USDC, USDT
-
+        if(assetDecimals < 10) { // asset decmals가 10보다 더 작은 경우 ex. USDC, USDT
+            return assetPrice * _amount * (10**(10-assetDecimals));
         }
-        else if(assetDecimals == 0){ // 같은 경우 ex. 대부분
-
+        else if(assetDecimals == 0){ // 10이랑 같은 경우 ex. ?
+            return assetPrice * _amount;
         }
-        else { // 더 큰 경우 
-
+        else { // 더 큰 경우 ex. 대부분 18
+            return (assetPrice * _amount) / (10**(assetDecimals-10));
         }
-
-
     }
-
 
 }
