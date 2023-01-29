@@ -2,16 +2,20 @@
 pragma solidity ^0.8.10;
 
 interface ISwapModule {
+    function getRouterAddress() external returns(address);
+
     function swapExactInput(
         uint256 amountIn,
         address inputToken,
-        address outputToken
+        address outputToken,
+        address quinoaVault
     ) external;
 
     function swapExactOutput(
         uint256 amountOut,
         address inputToken,
-        address outputToken
+        address outputToken,
+        address quinoaVault
     ) external;
 
     function estimateSwapInputAmount(
@@ -20,7 +24,7 @@ interface ISwapModule {
         address outputToken
     ) external returns (uint256);
 
-    function extimateSwapOutputAmount(
+    function estimateSwapOutputAmount(
         uint256 amountIn,
         address inputToken,
         address outputToken
