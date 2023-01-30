@@ -93,11 +93,6 @@ contract Product is ERC20, IProduct {
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
     }
 
-    function addStrategy(address newStrategyAddress) external override onlyDac {
-        require(newStrategyAddress!=address(0x0), "Invalid strategy address");
-        strategies.push(StrategyParams(newStrategyAddress, IStrategy(newStrategyAddress).underlyingAsset()));
-    }
-
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
     function addAsset(address newAssetAddress) external override {
@@ -179,8 +174,8 @@ contract Product is ERC20, IProduct {
     }
 
     function checkStrategy(address strategyAddress) public view override returns(bool) {
-        for (uint i=0; i<strategies.length; i++){
-            if(strategies[i].strategyAddress == strategyAddress) {
+        for (uint i=0; i<assets.length; i++){
+            if(strategies[assets[i].assetAddress] == strategyAddress) {
                 return true;
             }
         }
@@ -252,8 +247,7 @@ contract Product is ERC20, IProduct {
         
         require(assets.length != 0);
         require(withdrawalQueue.length != 0);
-        require(strategies.length != 0);
-        require(strategies.length == assets.length);
+        // Todo: strategy 존재성 검사
 
         uint sumOfWeights = 0;
         for(uint i=0; i<assets.length; i++) {
@@ -275,7 +269,7 @@ contract Product is ERC20, IProduct {
     }
 
     function updateWithdrawalQueue(address[] memory newWithdrawalQueue) external onlyDac {
-        require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
+        // require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
 
         for (uint i=0; i<newWithdrawalQueue.length; i++){
             require(checkStrategy(newWithdrawalQueue[i]), "Strategy doesn't exist");
