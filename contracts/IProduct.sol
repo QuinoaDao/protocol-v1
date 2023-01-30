@@ -9,7 +9,6 @@ interface IProduct is IERC20, IERC20Metadata {
     ///@dev Product에서 사용하는 underlying asset 1개의 정보를 담아놓는 구조체.
     struct AssetParams {
         address assetAddress;
-        address oracleAddress;
         uint256 targetWeight;
         uint256 currentPrice;
     }
@@ -48,9 +47,8 @@ interface IProduct is IERC20, IERC20Metadata {
     function checkAsset(address assetAddress) external returns (bool isExist); 
     function checkStrategy(address strategyAddress) external returns(bool isExist);
     function addStrategy(address newStrategyAddress) external;
-    function addAsset(address newAssetAddress, address newOracleAddress) external;
+    function addAsset(address newAssetAddress) external;
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external; 
-    function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) external;
     function updateFloatRatio(uint256 newFloatRatio) external;
 
     ///@notice Functions using the balance keyword return asset's balances(amount)
