@@ -55,7 +55,7 @@ contract Product is ERC20, IProduct {
         string memory symbol_, 
         address dacAddress_, 
         string memory dacName_, 
-        address usdPriceModule_,
+        address memory usdPriceModule_,
         address[] memory assetAddresses_, 
         uint256 floatRatio_
         ) 
