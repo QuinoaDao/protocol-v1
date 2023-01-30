@@ -5,7 +5,6 @@ import "./IProduct.sol";
 import "./IStrategy.sol";
 import "./UsdPriceModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract Product is ERC20, IProduct {
@@ -13,7 +12,7 @@ contract Product is ERC20, IProduct {
 
     AssetParams[] public assets;
     StrategyParams[] public strategies;
-    address[] withdrawalQueue; // 최대 10개까지 가능하고 마지막은 0x0
+    address[] withdrawalQueue;
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
@@ -40,10 +39,9 @@ contract Product is ERC20, IProduct {
     event UpdateWithdrawalQueue(
         address indexed caller, 
         address[] newWithdrawalQueue,
-        uint256 time
-    );
+        uint256 time);
 
-    ///@dev DAC means the owner of the product.
+    ///@notice DAC means the owner of the product.
     ///Only dac member can call the rebalance method.
     modifier onlyDac {
         require(_msgSender()==_dacAddress);
@@ -55,7 +53,7 @@ contract Product is ERC20, IProduct {
         string memory symbol_, 
         address dacAddress_, 
         string memory dacName_, 
-        address memory usdPriceModule_,
+        address usdPriceModule_,
         address[] memory assetAddresses_, 
         uint256 floatRatio_
         ) 
@@ -256,7 +254,7 @@ contract Product is ERC20, IProduct {
 
     function deactivateProduct() external onlyDac {
         require(isActive);
-        // deactivate 상태일 때 불가능한 것들 생각해보기 -> require문 
+        // deactivate 상태일 때 불가능한 것들 생각해보기 -> require문 날려야 함
         isActive = false;
 
         emit DeactivateProduct(_msgSender(), block.timestamp);
@@ -274,22 +272,22 @@ contract Product is ERC20, IProduct {
         emit UpdateWithdrawalQueue(_msgSender(), newWithdrawalQueue, block.timestamp);
     }
 
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256) {
+    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
         require(isActive, "Product is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
-        // deposit 양 maxDeposit이랑 비교 -> 100(105)달러가 상한선
+        // deposit 양 maxDeposit이랑 비교 -> 100달러가 상한선
+
+        // current price 가져오기
         // max deposit 계산 후 require
-        uint256 depositValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
-        require(depositValue < maxDepositValue(_msgSender()), "Too much deposit");
 
-        // dollar 기준 가격으로 share 양 계산하기
-        uint256 shares = _valueToShares(depositValue);
-        require(shares > 0, "short of deposit");
+        // uint256 shares = previewDeposit(assets); // dollar 기준 가격으로 share 양 계산하기
+        // require(shares > 0, "Vault: deposit less than minimum");
 
-        SafeERC20.safeTransfer(IERC20(assetAddress), address(this), assetAmount); // token, to, value
-        _mint(receiver, shares);
+        // SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);
+        // safeERC20이랑 그냥 ERC20 차이점 분석 필요
+        // _mint(receiver, shares);
 
-        emit Deposit(_msgSender(), receiver, assetAmount, shares);
+        emit Deposit(msg.sender, receiver, assetAmount, shares);
         return shares;
     }
 
@@ -342,58 +340,7 @@ contract Product is ERC20, IProduct {
         // emit Rebalance(block.timestamp);
     }
 
+    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {} 
+    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {}
 
-    // 몇 달러 max로 deposit할 수 있는지 반환
-    function maxDepositValue(address receiver) public view returns (uint256){
-        return 105 * 1e18;
-    } // for deposit
-
-    // 몇 달러 max로 withdraw할 수 있는지 반환
-    function maxWithdrawValue(address owner) public view returns (uint256) {
-        return sharesValue(balanceOf(owner));
-    } // for withdraw
-
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {
-        // strategy 관련 작업 끝나면 logic 추가
-        IStrategy(strategyAddress);
-    } 
-
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {
-        // strategy 관련 작업 끝나면 logic 추가
-        IStrategy(strategyAddress);
-    }
-
-    // asset amount 받고, 이에 맞는 share 개수 반환
-    function convertToShares(address assetAddress, uint256 assetAmount) public returns(uint256 shareAmount) {
-        uint256 _assetValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
-        return _valueToShares(_assetValue);
-    }
-
-    // share amount 받고, 이에 맞는 asset 개수 반환
-    function convertToAssets(address assetAddress, uint256 shareAmount) public returns(uint256 assetAmount) {
-        uint256 _shareValue = sharesValue(shareAmount);
-        return _valueToAssets(assetAddress, _shareValue);
-    }
-    
-    // asset의 dollar 양 받고, share 토큰 개수 반환
-    // 수식 : deposit asset value * total share supply / portfolio value
-    function _valueToShares(uint256 _assetValue) internal returns(uint256 shareAmount) {
-        return (_assetValue * totalSupply()) / portfolioValue();
-    } 
-
-    // share의 dollar 양 받고, asset의 개수 반환
-    // 수식 : withdraw share value / asset Price
-    function _valueToAssets(address assetAddress, uint256 _shareValue) internal returns(uint256 assetAmount) {
-        return _shareValue / _usdPriceModule.getAssetUsdPrice(assetAddress);
-    }
-
-    // shareToken 1개의 가격 정보 반환
-    function sharePrice() public view returns(uint256) {
-        return portfolioValue() * 1e18 / totalSupply();
-    }
-
-    // share Token 여러개의 가격 정보 반환
-    function sharesValue(uint256 shareAmount) public view returns(uint256) {
-        return (portfolioValue() * shareAmount) / totalSupply();
-    }
 }
