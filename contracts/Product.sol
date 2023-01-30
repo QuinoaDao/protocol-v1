@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import "./IProduct.sol";
 import "./IStrategy.sol";
 import "./UsdPriceModule.sol";
+import "./SwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -26,6 +27,7 @@ contract Product is ERC20, IProduct {
     uint256 private _sinceDate;
 
     UsdPriceModule private _usdPriceModule;
+    SwapModule private _SwapModule;
 
     event ActivateProduct(
         address indexed caller,
@@ -55,6 +57,7 @@ contract Product is ERC20, IProduct {
         address dacAddress_, 
         string memory dacName_, 
         address usdPriceModule_,
+        address swapModule_,
         address[] memory assetAddresses_, 
         uint256 floatRatio_,
         uint256 deviationThreshold_
@@ -71,6 +74,7 @@ contract Product is ERC20, IProduct {
 
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
+        _swapModule = SwapModule(swapModule_);
 
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
@@ -91,6 +95,10 @@ contract Product is ERC20, IProduct {
 
     function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
+    }
+    
+    function updateSwapModule(address newSwapModule) external onlyDac {
+        _usdPriceModule = SwapModule(newSwapModule);
     }
 
     function addStrategy(address newStrategyAddress) external override onlyDac {
@@ -334,9 +342,10 @@ contract Product is ERC20, IProduct {
             if (currentBalance > targetBalance*(1 + _deviationThreshold / 100000)) {
                 uint256 sellAmount = currentBalance - targetBalance;
                 redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
-                
+                // TODO check redeem was successful
                 // swap to underlying stablecoin
-                
+                // address underlyingAsset = 
+                _SwapModule.swapExactInput(sellAmount, assets[i].assetAddress, underlyingAsset, address(this));
             }
         }
 
@@ -349,7 +358,7 @@ contract Product is ERC20, IProduct {
                 uint256 buyAmount = targetBalance - currentBalance;
 
                 // swap to underlying stablecoin
-                
+                _SwapModule.swapExactOutput(buyAmount, underlyingAsset, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
             if(newFloatBalance > targetBalance*_floatRatio){
