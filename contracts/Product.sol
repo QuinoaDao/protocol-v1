@@ -3,7 +3,7 @@ pragma solidity ^0.8.10;
 
 import "./IProduct.sol";
 import "./IStrategy.sol";
-import "./libraries/ChainlinkGateway.sol";
+import "./UsdPriceModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -12,18 +12,38 @@ contract Product is ERC20, IProduct {
 
     AssetParams[] public assets;
     StrategyParams[] public strategies;
+    address[] withdrawalQueue;
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
     uint256 private _floatRatio;
 
+    bool private isActive;
+
     string private _dacName; 
     address private _dacAddress;
     uint256 private _sinceDate;
 
+    UsdPriceModule private _usdPriceModule;
+
+    event ActivateProduct(
+        address indexed caller,
+        uint256 time
+    );
+
+     event DeactivateProduct(
+        address indexed caller,
+        uint256 time
+    );
+
+    event UpdateWithdrawalQueue(
+        address indexed caller, 
+        address[] newWithdrawalQueue,
+        uint256 time);
+
     ///@notice DAC means the owner of the product.
     ///Only dac member can call the rebalance method.
-    modifier onlyDac{
+    modifier onlyDac {
         require(_msgSender()==_dacAddress);
         _;
     }
@@ -33,24 +53,26 @@ contract Product is ERC20, IProduct {
         string memory symbol_, 
         address dacAddress_, 
         string memory dacName_, 
+        address usdPriceModule_,
         address[] memory assetAddresses_, 
-        address[] memory oracleAddresses_,
         uint256 floatRatio_
         ) 
         ERC20 (name_, symbol_)
     {
         
         _sinceDate = block.timestamp;
+        isActive = false;
 
         require(dacAddress_ != address(0x0), "Invalid dac address");
         _dacAddress = dacAddress_;
         _dacName = dacName_;
 
-        
-        require(assetAddresses_.length == oracleAddresses_.length, "Invalid underlying asset parameters");
+        require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
+        _usdPriceModule = UsdPriceModule(usdPriceModule_);
+
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
-            assets.push(AssetParams(assetAddresses_[i], oracleAddresses_[i], 0, 0)); 
+            assets.push(AssetParams(assetAddresses_[i], 0, 0)); 
         }
 
         require((floatRatio_ >= 0) || (floatRatio_ <= 100000), "Invalid float ratio");
@@ -62,13 +84,21 @@ contract Product is ERC20, IProduct {
         return assets;
     }
 
+    function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
+        _usdPriceModule = UsdPriceModule(newUsdPriceModule);
+    }
+
+    function addStrategy(address newStrategyAddress) external override onlyDac {
+        require(newStrategyAddress!=address(0x0), "Invalid strategy address");
+        strategies.push(StrategyParams(newStrategyAddress, IStrategy(newStrategyAddress).underlyingAsset()));
+    }
+
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
-    function addAsset(address newAssetAddress, address newOracleAddress) external override {
+    function addAsset(address newAssetAddress) external override {
         require(newAssetAddress!=address(0x0), "Invalid asset address");
-        require(newOracleAddress!=address(0x0), "Invalid oracle address");
         require(!checkAsset(newAssetAddress), "Asset Already Exists");
-        assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
+        assets.push(AssetParams(newAssetAddress, 0, 0)); 
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
@@ -90,28 +120,11 @@ contract Product is ERC20, IProduct {
         require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
     }
 
-    ///@notice update target oracle address when chainlink or other oracle platform changes address.
-    function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) external override {
-        for (uint i = 0; i < assetAddresses.length; i++) {
-            bool found = false;
-            for (uint j = 0; j < assets.length; j++) {
-                if(assets[j].assetAddress == assetAddresses[i]) {
-                    require(assetOracles[i] != address(0x0), "Invalid underlying asset address");
-                    assets[j].oracleAddress = assetOracles[i];
-                    found = true;
-                    break;
-                    }
-                }
-            require(found, "Asset not found");
-        }
-    }
-
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
     function updateFloatRatio(uint256 newFloatRatio) external override {
         require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
         _floatRatio = newFloatRatio;
     }
-
 
     ///@notice Returns decimals of the product share token.
     function decimals() public view virtual override(ERC20, IERC20Metadata) returns (uint8) {
@@ -139,9 +152,18 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Check if the asset address is the asset currently being handled in the product.
-    function checkAsset(address _tokenAddress) public view returns (bool) {
+    function checkAsset(address _assetAddress) public view override returns (bool) {
         for (uint i = 0; i < assets.length; i++) {
-            if(assets[i].assetAddress == _tokenAddress) {
+            if(assets[i].assetAddress == _assetAddress) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function checkStrategy(address strategyAddress) public view override returns(bool) {
+        for (uint i=0; i<strategies.length; i++){
+            if(strategies[i].strategyAddress == strategyAddress) {
                 return true;
             }
         }
@@ -169,7 +191,7 @@ contract Product is ERC20, IProduct {
     function portfolioValue() public view override returns(uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
-            totalValue += assetBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+            totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetBalance(assets[i].assetAddress));
         }
         return totalValue;
     }
@@ -178,7 +200,7 @@ contract Product is ERC20, IProduct {
     function totalFloatValue() public view override returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
-            totalValue += assetFloatBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+            totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetFloatBalance(assets[i].assetAddress));
         }
         return totalValue;
     }
@@ -188,7 +210,7 @@ contract Product is ERC20, IProduct {
         uint totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
             if(assets[i].assetAddress == assetAddress) {
-                totalValue += assetBalance(assets[i].assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+                totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetBalance(assets[i].assetAddress));
                 break;
             }
         }
@@ -197,15 +219,73 @@ contract Product is ERC20, IProduct {
 
     ///@notice Returns the float value for one of the underlying assets of the product.
     function assetFloatValue(address assetAddress) public view override returns(uint256) {
-        return assetFloatBalance(assetAddress) * ChainlinkGateway.getLatestPrice(assets[i].oracleAddress);
+        uint totalValue = 0;
+        for (uint256 i=0; i < assets.length; i++) {
+            if(assets[i].assetAddress == assetAddress) {
+                totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetFloatBalance(assets[i].assetAddress));
+                break;
+            }
+        }
+        return totalValue;
     }
 
+    function checkActivation() public view returns(bool) {
+        return isActive;
+    }
+
+    function activateProduct() external onlyDac {
+        require(!isActive);
+        
+        require(assets.length != 0);
+        require(withdrawalQueue.length != 0);
+        require(strategies.length != 0);
+        require(strategies.length == assets.length);
+
+        uint sumOfWeights = 0;
+        for(uint i=0; i<assets.length; i++) {
+            sumOfWeights += assets[i].targetWeight;
+        }
+        require(sumOfWeights == 100000);
+
+        isActive = true;
+
+        emit ActivateProduct(_msgSender(), block.timestamp);
+    }
+
+    function deactivateProduct() external onlyDac {
+        require(isActive);
+        // deactivate 상태일 때 불가능한 것들 생각해보기 -> require문 날려야 함
+        isActive = false;
+
+        emit DeactivateProduct(_msgSender(), block.timestamp);
+    }
+
+    function updateWithdrawalQueue(address[] memory newWithdrawalQueue) external onlyDac {
+        require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
+
+        for (uint i=0; i<newWithdrawalQueue.length; i++){
+            require(checkStrategy(newWithdrawalQueue[i]), "Strategy doesn't exist");
+        }
+
+        withdrawalQueue = newWithdrawalQueue;
+
+        emit UpdateWithdrawalQueue(_msgSender(), newWithdrawalQueue, block.timestamp);
+    }
 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
+        require(isActive, "Product is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
-        
-        // TODO
-        // Deposit Logic 
+        // deposit 양 maxDeposit이랑 비교 -> 100달러가 상한선
+
+        // current price 가져오기
+        // max deposit 계산 후 require
+
+        // uint256 shares = previewDeposit(assets); // dollar 기준 가격으로 share 양 계산하기
+        // require(shares > 0, "Vault: deposit less than minimum");
+
+        // SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);
+        // safeERC20이랑 그냥 ERC20 차이점 분석 필요
+        // _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assetAmount, shares);
         return shares;
@@ -228,7 +308,7 @@ contract Product is ERC20, IProduct {
     function rebalance() external {
         uint256 portfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
-            assets[i].currentPrice = ChainlinkGateway.getLatestPrice(assets[i].assetAddress);
+            assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
             portfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
         }
 
@@ -260,13 +340,7 @@ contract Product is ERC20, IProduct {
         // emit Rebalance(block.timestamp);
     }
 
-    function maxDeposit(address receiver) external view override returns (uint256){} // for deposit
-    function maxWithdraw(address owner) external view override returns (uint256){} // for withdraw
-
     function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {} 
     function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {}
 
-    // 보류
-    function convertToShares(uint256 assetAmount) external view override returns(uint256 shareAmount) {}
-    function convertToAssets(uint256 shareAmount) external view override returns (uint256 assetAmount){}
 }
