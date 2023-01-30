@@ -344,7 +344,7 @@ contract Product is ERC20, IProduct {
 
 
     // 몇 달러 max로 deposit할 수 있는지 반환
-    function maxDepositValue(address receiver) public view returns (uint256){
+    function maxDepositValue(address receiver) public pure returns (uint256){
         return 105 * 1e18;
     } // for deposit
 
@@ -364,26 +364,26 @@ contract Product is ERC20, IProduct {
     }
 
     // asset amount 받고, 이에 맞는 share 개수 반환
-    function convertToShares(address assetAddress, uint256 assetAmount) public returns(uint256 shareAmount) {
+    function convertToShares(address assetAddress, uint256 assetAmount) public view returns(uint256 shareAmount) {
         uint256 _assetValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
         return _valueToShares(_assetValue);
     }
 
     // share amount 받고, 이에 맞는 asset 개수 반환
-    function convertToAssets(address assetAddress, uint256 shareAmount) public returns(uint256 assetAmount) {
+    function convertToAssets(address assetAddress, uint256 shareAmount) public view returns(uint256 assetAmount) {
         uint256 _shareValue = sharesValue(shareAmount);
         return _valueToAssets(assetAddress, _shareValue);
     }
     
     // asset의 dollar 양 받고, share 토큰 개수 반환
     // 수식 : deposit asset value * total share supply / portfolio value
-    function _valueToShares(uint256 _assetValue) internal returns(uint256 shareAmount) {
+    function _valueToShares(uint256 _assetValue) internal view returns(uint256 shareAmount) {
         return (_assetValue * totalSupply()) / portfolioValue();
     } 
 
     // share의 dollar 양 받고, asset의 개수 반환
     // 수식 : withdraw share value / asset Price
-    function _valueToAssets(address assetAddress, uint256 _shareValue) internal returns(uint256 assetAmount) {
+    function _valueToAssets(address assetAddress, uint256 _shareValue) internal view returns(uint256 assetAmount) {
         return _shareValue / _usdPriceModule.getAssetUsdPrice(assetAddress);
     }
 
