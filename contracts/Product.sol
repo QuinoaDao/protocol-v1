@@ -11,8 +11,7 @@ contract Product is ERC20, IProduct {
     using Math for uint256;
 
     AssetParams[] public assets;
-    // StrategyParams[] public strategies;
-    mapping (address => StrategyParams) strategies;
+    mapping (address => address) strategies; // asset address => strategy address
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
@@ -80,7 +79,7 @@ contract Product is ERC20, IProduct {
     function addStrategy(address assetAddress, address strategyAddress) external {
         require(checkAsset(assetAddress), "Asset Doesn't Exist");
         require(strategyAddress!=address(0x0), "Invalid Strategy address");
-        strategies[assetAddress] = StrategyParams(strategyAddress, assetAddress);
+        strategies[assetAddress] = strategyAddress;
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
@@ -175,7 +174,7 @@ contract Product is ERC20, IProduct {
     ///@notice Calculates the whole amount for one of underlying assets the product holds.
     function assetBalance(address assetAddress) public view override returns(uint256) {
         uint256 totalBalance = assetFloatBalance(assetAddress);
-        IStrategy assetStrategy = IStrategy(strategies[assetAddress].strategyAddress);
+        IStrategy assetStrategy = IStrategy(strategies[assetAddress]);
         totalBalance += assetStrategy.totalAssets();
         return totalBalance;
     }
@@ -241,21 +240,20 @@ contract Product is ERC20, IProduct {
     }
 
     function rebalance() external {
-        uint256 portfolioValue = 0;
+        uint256 curretPortfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
             assets[i].currentPrice = ChainlinkGateway.getLatestPrice(assets[i].assetAddress);
-            portfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
+            curretPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
         }
 
 
         // SELL
         for(uint i=0; i < assets.length; i++){
-            uint256 targetBalance = ((assets[i].targetWeight / 100000) * portfolioValue) / assets[i].currentPrice;
+            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
-            IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress].strategyAddress);
             if (currentBalance > targetBalance*(1 + _deviationThreshold / 100000)) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                redeemFromStrategy(address(assetStrategy), sellAmount);
+                redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
                 
                 // swap to underlying stablecoin
                 
@@ -264,9 +262,9 @@ contract Product is ERC20, IProduct {
 
         // BUY
         for(uint i=0; i < assets.length; i++) {
-            uint256 targetBalance = ((assets[i].targetWeight / 100000) * portfolioValue) / assets[i].currentPrice;
+            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
-            IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress].strategyAddress);
+            IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
             if (currentBalance < targetBalance*(1 - _deviationThreshold / 100000)) {
                 uint256 buyAmount = targetBalance - currentBalance;
 

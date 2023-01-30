@@ -14,12 +14,6 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 currentPrice;
     }
 
-    ///@dev Product에서 사용하는 strategy 1개의 정보를 담아놓는 구조체.
-    struct StrategyParams {
-        address strategyAddress;
-        address assetAddress;
-    }
-
     ///@dev MUST be emitted when tokens are deposited into the vault via the deposit methods
     event Deposit(
         address indexed sender,
