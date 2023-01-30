@@ -5,6 +5,7 @@ import "./IProduct.sol";
 import "./IStrategy.sol";
 import "./UsdPriceModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract Product is ERC20, IProduct {
@@ -31,7 +32,7 @@ contract Product is ERC20, IProduct {
         uint256 time
     );
 
-    event DeactivateProduct(
+     event DeactivateProduct(
         address indexed caller,
         uint256 time
     );
@@ -39,9 +40,10 @@ contract Product is ERC20, IProduct {
     event UpdateWithdrawalQueue(
         address indexed caller, 
         address[] newWithdrawalQueue,
-        uint256 time);
+        uint256 time
+    );
 
-    ///@notice DAC means the owner of the product.
+    ///@dev DAC means the owner of the product.
     ///Only dac member can call the rebalance method.
     modifier onlyDac {
         require(_msgSender()==_dacAddress);
@@ -254,7 +256,7 @@ contract Product is ERC20, IProduct {
 
     function deactivateProduct() external onlyDac {
         require(isActive);
-        // deactivate 상태일 때 불가능한 것들 생각해보기 -> require문 날려야 함
+        // deactivate 상태일 때 불가능한 것들 생각해보기 -> require문 
         isActive = false;
 
         emit DeactivateProduct(_msgSender(), block.timestamp);
@@ -272,22 +274,22 @@ contract Product is ERC20, IProduct {
         emit UpdateWithdrawalQueue(_msgSender(), newWithdrawalQueue, block.timestamp);
     }
 
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares) {
+    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256) {
         require(isActive, "Product is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
-        // deposit 양 maxDeposit이랑 비교 -> 100달러가 상한선
-
-        // current price 가져오기
+        // deposit 양 maxDeposit이랑 비교 -> 100(105)달러가 상한선
         // max deposit 계산 후 require
+        uint256 depositValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
+        require(depositValue < maxDepositValue(_msgSender()), "Too much deposit");
 
-        // uint256 shares = previewDeposit(assets); // dollar 기준 가격으로 share 양 계산하기
-        // require(shares > 0, "Vault: deposit less than minimum");
+        // dollar 기준 가격으로 share 양 계산하기
+        uint256 shares = _valueToShares(depositValue);
+        require(shares > 0, "short of deposit");
 
-        // SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);
-        // safeERC20이랑 그냥 ERC20 차이점 분석 필요
-        // _mint(receiver, shares);
+        SafeERC20.safeTransfer(IERC20(assetAddress), address(this), assetAmount); // token, to, value
+        _mint(receiver, shares);
 
-        emit Deposit(msg.sender, receiver, assetAmount, shares);
+        emit Deposit(_msgSender(), receiver, assetAmount, shares);
         return shares;
     }
 
@@ -339,6 +341,7 @@ contract Product is ERC20, IProduct {
         
         // emit Rebalance(block.timestamp);
     }
+
 
     // 몇 달러 max로 deposit할 수 있는지 반환
     function maxDepositValue(address receiver) public pure returns (uint256){
