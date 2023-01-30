@@ -72,7 +72,4 @@ interface IProduct is IERC20, IERC20Metadata {
 
     function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external; 
     function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external; 
-
-    function convertToShares(uint256 assetAmount) external view returns(uint256 shareAmount);
-    function convertToAssets(uint256 shareAmount) external view returns (uint256 assetAmount);
 }
