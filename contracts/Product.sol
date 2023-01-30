@@ -124,7 +124,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Update rebalance threshold. It will reflect at the next rebalancing or withdrawal.
-    function updatedeviationThreshold(uint256 newDeviationThreshold) external override {
+    function updateDeviationThreshold(uint256 newDeviationThreshold) external override onlyDac {
         require((newDeviationThreshold >= 0) || (newDeviationThreshold <= 10000), "Invalid Rebalance Threshold");
         _deviationThreshold = newDeviationThreshold;
     }
