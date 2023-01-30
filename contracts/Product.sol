@@ -12,7 +12,7 @@ contract Product is ERC20, IProduct {
 
     AssetParams[] public assets;
     StrategyParams[] public strategies;
-    address[] withdrawalQueue; // 최대 10개까지 가능하고 마지막은 0x0
+    address[] withdrawalQueue;
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
@@ -55,7 +55,6 @@ contract Product is ERC20, IProduct {
         string memory dacName_, 
         address usdPriceModule_,
         address[] memory assetAddresses_, 
-        address[] memory oracleAddresses_,
         uint256 floatRatio_
         ) 
         ERC20 (name_, symbol_)
@@ -71,10 +70,9 @@ contract Product is ERC20, IProduct {
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
 
-        require(assetAddresses_.length == oracleAddresses_.length, "Invalid underlying asset parameters");
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
-            assets.push(AssetParams(assetAddresses_[i], oracleAddresses_[i], 0, 0)); 
+            assets.push(AssetParams(assetAddresses_[i], 0, 0)); 
         }
 
         require((floatRatio_ >= 0) || (floatRatio_ <= 100000), "Invalid float ratio");
@@ -97,11 +95,10 @@ contract Product is ERC20, IProduct {
 
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
-    function addAsset(address newAssetAddress, address newOracleAddress) external override {
+    function addAsset(address newAssetAddress) external override {
         require(newAssetAddress!=address(0x0), "Invalid asset address");
-        require(newOracleAddress!=address(0x0), "Invalid oracle address");
         require(!checkAsset(newAssetAddress), "Asset Already Exists");
-        assets.push(AssetParams(newAssetAddress, newOracleAddress, 0, 0)); 
+        assets.push(AssetParams(newAssetAddress, 0, 0)); 
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
@@ -121,22 +118,6 @@ contract Product is ERC20, IProduct {
             require(found, "Asset not found");
         }
         require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
-    }
-
-    ///@notice update target oracle address when chainlink or other oracle platform changes address.
-    function updateOracleAddress(address[] memory assetAddresses, address[] memory assetOracles) external override {
-        for (uint i = 0; i < assetAddresses.length; i++) {
-            bool found = false;
-            for (uint j = 0; j < assets.length; j++) {
-                if(assets[j].assetAddress == assetAddresses[i]) {
-                    require(assetOracles[i] != address(0x0), "Invalid underlying asset address");
-                    assets[j].oracleAddress = assetOracles[i];
-                    found = true;
-                    break;
-                    }
-                }
-            require(found, "Asset not found");
-        }
     }
 
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
@@ -359,13 +340,7 @@ contract Product is ERC20, IProduct {
         // emit Rebalance(block.timestamp);
     }
 
-    function maxDeposit(address receiver) external view override returns (uint256){} // for deposit
-    function maxWithdraw(address owner) external view override returns (uint256){} // for withdraw
-
     function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {} 
     function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {}
 
-    // 보류
-    function convertToShares(uint256 assetAmount) external view override returns(uint256 shareAmount) {}
-    function convertToAssets(uint256 shareAmount) external view override returns (uint256 assetAmount){}
 }
