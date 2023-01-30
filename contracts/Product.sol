@@ -372,36 +372,47 @@ contract Product is ERC20, IProduct {
         return sharesValue(balanceOf(owner));
     } // for withdraw
 
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {} 
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {}
+    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {
+        // strategy 관련 작업 끝나면 logic 추가
+        IStrategy(strategyAddress);
+    } 
+
+    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {
+        // strategy 관련 작업 끝나면 logic 추가
+        IStrategy(strategyAddress);
+    }
 
     // asset amount 받고, 이에 맞는 share 개수 반환
     function convertToShares(address assetAddress, uint256 assetAmount) public returns(uint256 shareAmount) {
-
+        uint256 _assetValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
+        return _valueToShares(_assetValue);
     }
 
     // share amount 받고, 이에 맞는 asset 개수 반환
     function convertToAssets(address assetAddress, uint256 shareAmount) public returns(uint256 assetAmount) {
-
+        uint256 _shareValue = sharesValue(shareAmount);
+        return _valueToAssets(assetAddress, _shareValue);
     }
     
     // asset의 dollar 양 받고, share 토큰 개수 반환
+    // 수식 : deposit asset value * total share supply / portfolio value
     function _valueToShares(uint256 _assetValue) internal returns(uint256 shareAmount) {
-
+        return (_assetValue * totalSupply()) / portfolioValue();
     } 
 
     // share의 dollar 양 받고, asset의 개수 반환
+    // 수식 : withdraw share value / asset Price
     function _valueToAssets(address assetAddress, uint256 _shareValue) internal returns(uint256 assetAmount) {
-
+        return _shareValue / _usdPriceModule.getAssetUsdPrice(assetAddress);
     }
 
     // shareToken 1개의 가격 정보 반환
     function sharePrice() public view returns(uint256) {
-        
+        return portfolioValue() * 1e18 / totalSupply();
     }
 
     // share Token 여러개의 가격 정보 반환
     function sharesValue(uint256 shareAmount) public view returns(uint256) {
-
+        return (portfolioValue() * shareAmount) / totalSupply();
     }
 }

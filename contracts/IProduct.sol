@@ -62,12 +62,9 @@ interface IProduct is IERC20, IERC20Metadata {
     function assetValue(address assetAddress) external view returns (uint256); 
     function totalFloatValue() external view returns (uint256);
     function assetFloatValue(address assetAddress) external view returns(uint256);
-    
-    function maxDeposit(address receiver) external view returns (uint256);
-    function maxWithdraw(address owner) external view returns (uint256);
 
     function withdraw(address assetAddress, uint256 assetAmount, address receiver, address owner) external returns (uint256 shares); 
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256 shares); 
+    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256); 
     function rebalance() external;
 
     function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external; 
