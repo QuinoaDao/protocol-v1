@@ -343,10 +343,8 @@ contract Product is ERC20, IProduct {
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
-                // TODO check redeem was successful
-                // swap to underlying stablecoin
-                // address underlyingAsset = 
+                require(redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
+            
                 IERC20(assets[i].assetAddress).approve(_swapModule.getRouterAddress(), sellAmount);
                 _swapModule.swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
@@ -360,21 +358,21 @@ contract Product is ERC20, IProduct {
             if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
                 uint256 buyAmount = targetBalance - currentBalance;
 
-                // swap to underlying stablecoin
                 uint256 amountInEstimated = _swapModule.estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
                 IERC20(_underlyingAssetAddress).approve(_swapModule.getRouterAddress(), amountInEstimated);
                 _swapModule.swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
             if(newFloatBalance > targetBalance*_floatRatio){
-                depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio);
+                require(depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio), "Deposit into Strategy Failed");
+                
             } 
         }
         
-        // emit Rebalance(address(this), currentAssets(), block.timestamp);
+        emit Rebalance(address(this), assets, block.timestamp);
     }
 
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal {} 
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal {}
+    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal returns(bool) {} 
+    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal returns(bool) {}
 
 }
