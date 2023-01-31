@@ -366,12 +366,12 @@ contract Product is ERC20, IProduct {
         return sharesValue(balanceOf(owner));
     } // for withdraw
 
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external override {
+    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal pure {
         // strategy 관련 작업 끝나면 logic 추가
         IStrategy(strategyAddress);
     } 
 
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external override {
+    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal pure {
         // strategy 관련 작업 끝나면 logic 추가
         IStrategy(strategyAddress);
     }
