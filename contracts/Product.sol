@@ -86,6 +86,28 @@ contract Product is ERC20, IProduct {
         _deviationThreshold = deviationThreshold_;
     }
 
+    function currentStrategies() external view returns(address[] memory) {
+        address[] memory tempStrategyAddresses = new address[](assets.length);
+        uint cnt = 0;
+
+        for (uint i=0; i<assets.length; i++){
+            if(strategies[assets[i].assetAddress] != address(0x0)) {
+                tempStrategyAddresses[cnt] = strategies[assets[i].assetAddress];
+            }
+        }
+
+        if(assets.length == cnt) {
+            return tempStrategyAddresses;
+        }
+        else {
+            address[] memory strategyAddresses = new address[](cnt);
+            for (uint i=0; i<cnt; i++) {
+                strategyAddresses[i] = tempStrategyAddresses[cnt];
+            }
+            return strategyAddresses;
+        }
+    }
+
     ///@notice Return current asset statistics.
     function currentAssets() external view override returns(AssetParams[] memory) {
         return assets;
@@ -249,13 +271,19 @@ contract Product is ERC20, IProduct {
         
         require(assets.length != 0);
         require(withdrawalQueue.length != 0);
-        // Todo: strategy 존재성 검사
 
         uint sumOfWeights = 0;
         for(uint i=0; i<assets.length; i++) {
             sumOfWeights += assets[i].targetWeight;
+            if(assets[i].targetWeight > 0) {
+                require(strategies[assets[i].assetAddress] != address(0));
+            }
         }
         require(sumOfWeights == 100000);
+
+        // dac이 일정 금액 이상 deposit하고 있어야 함
+        // 1인당 50달러 * 4명
+        require(balanceOf(_dacAddress) > (200 * 1e18));
 
         isActive = true;
 
@@ -271,7 +299,7 @@ contract Product is ERC20, IProduct {
     }
 
     function updateWithdrawalQueue(address[] memory newWithdrawalQueue) external onlyDac {
-        // require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
+        require(newWithdrawalQueue.length <= assets.length, "Too many elements");
 
         for (uint i=0; i<newWithdrawalQueue.length; i++){
             require(checkStrategy(newWithdrawalQueue[i]), "Strategy doesn't exist");
@@ -283,9 +311,11 @@ contract Product is ERC20, IProduct {
     }
 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256) {
-        require(isActive, "Product is disabled now");
+        // dac은 deactive한 상태에도 넣을 수 있음
+        // deactive임 + dac이 아님 -> deposit 불가능
+        require((_msgSender() == _dacAddress) || isActive, "Product is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
-        // deposit 양 maxDeposit이랑 비교 -> 100(105)달러가 상한선
+        // deposit 양 maxDeposit이랑 비교 -> 50(55)달러가 상한선
         // max deposit 계산 후 require
         uint256 depositValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
         require(depositValue < maxDepositValue(_msgSender()), "Too much deposit");
@@ -303,6 +333,7 @@ contract Product is ERC20, IProduct {
 
     function withdraw(address assetAddress, uint256 assetAmount, address receiver, address owner) external returns (uint256 shares) {
         require(checkAsset(assetAddress), "Asset not found");
+        // Todo dac은 중간에 자신의 금액을 출금할 수 없음
         
         // TODO
         // Withdraw Logic, 
@@ -316,6 +347,8 @@ contract Product is ERC20, IProduct {
     }
 
     function rebalance() external {
+        require(isActive, "Product is disabled now");
+        
         uint256 curretPortfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
             assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
@@ -329,7 +362,7 @@ contract Product is ERC20, IProduct {
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
             if (currentBalance > targetBalance*(1 + _deviationThreshold / 100000)) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
+                _redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
                 
                 // swap to underlying stablecoin
                 
@@ -349,7 +382,7 @@ contract Product is ERC20, IProduct {
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
             if(newFloatBalance > targetBalance*_floatRatio){
-                depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio);
+                _depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio);
             } 
         }
         
@@ -358,7 +391,7 @@ contract Product is ERC20, IProduct {
 
     // 몇 달러 max로 deposit할 수 있는지 반환
     function maxDepositValue(address receiver) public pure returns (uint256){
-        return 105 * 1e18;
+        return 55 * 1e18;
     } // for deposit
 
     // 몇 달러 max로 withdraw할 수 있는지 반환
@@ -366,14 +399,13 @@ contract Product is ERC20, IProduct {
         return sharesValue(balanceOf(owner));
     } // for withdraw
 
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal pure {
-        // strategy 관련 작업 끝나면 logic 추가
-        IStrategy(strategyAddress);
+    function _depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal {
+        address assetAddress = IStrategy(strategyAddress).underlyingAsset(); // 바로 transfer
+        SafeERC20.safeTransfer(IERC20(assetAddress), strategyAddress, assetAmount); // token, to, value
     } 
 
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal pure {
-        // strategy 관련 작업 끝나면 logic 추가
-        IStrategy(strategyAddress);
+    function _redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal {
+        IStrategy(strategyAddress).withdrawToVault(assetAmount);
     }
 
     // asset amount 받고, 이에 맞는 share 개수 반환
@@ -390,23 +422,27 @@ contract Product is ERC20, IProduct {
     
     // asset의 dollar 양 받고, share 토큰 개수 반환
     // 수식 : deposit asset value * total share supply / portfolio value
+    // vault가 비어있다면 1:1 반환
     function _valueToShares(uint256 _assetValue) internal view returns(uint256 shareAmount) {
-        return (_assetValue * totalSupply()) / portfolioValue();
+        return totalSupply() > 0 ? (_assetValue * totalSupply()) / portfolioValue() : _assetValue;
     } 
 
     // share의 dollar 양 받고, asset의 개수 반환
     // 수식 : withdraw share value / asset Price
+    // vault가 비어있다면 0 반환
     function _valueToAssets(address assetAddress, uint256 _shareValue) internal view returns(uint256 assetAmount) {
-        return _shareValue / _usdPriceModule.getAssetUsdPrice(assetAddress);
+        return totalSupply() > 0 ? _shareValue / _usdPriceModule.getAssetUsdPrice(assetAddress) : 0;
     }
 
     // shareToken 1개의 가격 정보 반환
+    // vault가 비어있다면 0 반환
     function sharePrice() public view returns(uint256) {
-        return portfolioValue() * 1e18 / totalSupply();
+        return totalSupply() > 0 ? portfolioValue() * 1e18 / totalSupply() : 0;
     }
 
     // share Token 여러개의 가격 정보 반환
+    // vault가 비어있다면 0 반환
     function sharesValue(uint256 shareAmount) public view returns(uint256) {
-        return (portfolioValue() * shareAmount) / totalSupply();
+        return totalSupply() > 0 ? (portfolioValue() * shareAmount) / totalSupply() : 0;
     }
 }
