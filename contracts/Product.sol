@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "./IProduct.sol";
 import "./IStrategy.sol";
 import "./UsdPriceModule.sol";
-import "./SwapModule.sol";
+import "./ISwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -28,7 +28,7 @@ contract Product is ERC20, IProduct {
     uint256 private _sinceDate;
 
     UsdPriceModule private _usdPriceModule;
-    SwapModule private _SwapModule;
+    ISwapModule private _SwapModule;
 
     event ActivateProduct(
         address indexed caller,
@@ -77,7 +77,7 @@ contract Product is ERC20, IProduct {
 
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
-        _SwapModule = SwapModule(swapModule_);
+        _SwapModule = ISwapModule(swapModule_);
 
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
@@ -101,7 +101,7 @@ contract Product is ERC20, IProduct {
     }
     
     function updateSwapModule(address newSwapModule) external onlyDac {
-        _SwapModule = SwapModule(newSwapModule);
+        _SwapModule = ISwapModule(newSwapModule);
     }
 
 
