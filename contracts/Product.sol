@@ -343,6 +343,7 @@ contract Product is ERC20, IProduct {
                 // TODO check redeem was successful
                 // swap to underlying stablecoin
                 // address underlyingAsset = 
+                IERC20(assets[i].assetAddress).approve(_SwapModule.getRouterAddress(), sellAmount);
                 _SwapModule.swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
         }
