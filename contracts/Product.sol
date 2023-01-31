@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.17;
 
 import "./IProduct.sol";
 import "./IStrategy.sol";
@@ -19,6 +19,7 @@ contract Product is ERC20, IProduct {
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
     uint256 private _floatRatio;
     uint256 private _deviationThreshold;
+    address public _underlyingAssetAddress;
 
     bool private isActive;
 
@@ -58,6 +59,7 @@ contract Product is ERC20, IProduct {
         string memory dacName_, 
         address usdPriceModule_,
         address swapModule_,
+        address underlyingAssetAddress_,
         address[] memory assetAddresses_, 
         uint256 floatRatio_,
         uint256 deviationThreshold_
@@ -71,10 +73,11 @@ contract Product is ERC20, IProduct {
         require(dacAddress_ != address(0x0), "Invalid dac address");
         _dacAddress = dacAddress_;
         _dacName = dacName_;
+        _underlyingAssetAddress = underlyingAssetAddress_;
 
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
-        _swapModule = SwapModule(swapModule_);
+        _SwapModule = SwapModule(swapModule_);
 
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
@@ -98,13 +101,9 @@ contract Product is ERC20, IProduct {
     }
     
     function updateSwapModule(address newSwapModule) external onlyDac {
-        _usdPriceModule = SwapModule(newSwapModule);
+        _SwapModule = SwapModule(newSwapModule);
     }
 
-    function addStrategy(address newStrategyAddress) external override onlyDac {
-        require(newStrategyAddress!=address(0x0), "Invalid strategy address");
-        strategies.push(StrategyParams(newStrategyAddress, IStrategy(newStrategyAddress).underlyingAsset()));
-    }
 
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
@@ -187,8 +186,8 @@ contract Product is ERC20, IProduct {
     }
 
     function checkStrategy(address strategyAddress) public view override returns(bool) {
-        for (uint i=0; i<strategies.length; i++){
-            if(strategies[i].strategyAddress == strategyAddress) {
+        for (uint i=0; i<assets.length; i++){
+            if(strategies[assets[i].assetAddress] == strategyAddress) {
                 return true;
             }
         }
@@ -260,8 +259,7 @@ contract Product is ERC20, IProduct {
         
         require(assets.length != 0);
         require(withdrawalQueue.length != 0);
-        require(strategies.length != 0);
-        require(strategies.length == assets.length);
+        // Todo: strategy 존재성 검사
 
         uint sumOfWeights = 0;
         for(uint i=0; i<assets.length; i++) {
@@ -283,7 +281,7 @@ contract Product is ERC20, IProduct {
     }
 
     function updateWithdrawalQueue(address[] memory newWithdrawalQueue) external onlyDac {
-        require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
+        // require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
 
         for (uint i=0; i<newWithdrawalQueue.length; i++){
             require(checkStrategy(newWithdrawalQueue[i]), "Strategy doesn't exist");
@@ -345,7 +343,7 @@ contract Product is ERC20, IProduct {
                 // TODO check redeem was successful
                 // swap to underlying stablecoin
                 // address underlyingAsset = 
-                _SwapModule.swapExactInput(sellAmount, assets[i].assetAddress, underlyingAsset, address(this));
+                _SwapModule.swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
         }
 
@@ -358,7 +356,9 @@ contract Product is ERC20, IProduct {
                 uint256 buyAmount = targetBalance - currentBalance;
 
                 // swap to underlying stablecoin
-                _SwapModule.swapExactOutput(buyAmount, underlyingAsset, assets[i].assetAddress, address(this));
+                uint256 amountInEstimated = _SwapModule.estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
+                IERC20(_underlyingAssetAddress).approve(_SwapModule.getRouterAddress(), amountInEstimated);
+                _SwapModule.swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
             if(newFloatBalance > targetBalance*_floatRatio){

@@ -40,7 +40,7 @@ interface IProduct is IERC20, IERC20Metadata {
     function currentAssets() external view returns(AssetParams[] memory); 
     function checkAsset(address assetAddress) external returns (bool isExist); 
     function checkStrategy(address strategyAddress) external returns(bool isExist);
-    function addStrategy(address newStrategyAddress) external;
+    function addStrategy(address assetAddress, address strategyAddress) external;
     function addAsset(address newAssetAddress) external;
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external; 
     function updateDeviationThreshold(uint256 newDeviationThreshold) external;
