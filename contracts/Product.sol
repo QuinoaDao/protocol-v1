@@ -12,8 +12,8 @@ contract Product is ERC20, IProduct {
     using Math for uint256;
 
     AssetParams[] public assets;
-    mapping (address => address) strategies; // asset address => strategy address
-    address[] withdrawalQueue;
+    mapping (address => address) public strategies; // asset address => strategy address
+    address[] public withdrawalQueue;
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
@@ -47,7 +47,7 @@ contract Product is ERC20, IProduct {
     ///@dev DAC means the owner of the product.
     ///Only dac member can call the rebalance method.
     modifier onlyDac {
-        require(_msgSender()==_dacAddress);
+        require(_msgSender()==_dacAddress, "Only dac can access");
         _;
     }
         
@@ -125,10 +125,12 @@ contract Product is ERC20, IProduct {
         assets.push(AssetParams(newAssetAddress, 0, 0)); 
     }
 
-    function addStrategy(address assetAddress, address strategyAddress) external {
-        require(checkAsset(assetAddress), "Asset Doesn't Exist");
+    function addStrategy(address strategyAddress) external override {
+        require(checkAsset(IStrategy(strategyAddress).underlyingAsset()), "Asset Doesn't Exist");
         require(strategyAddress!=address(0x0), "Invalid Strategy address");
-        strategies[assetAddress] = strategyAddress;
+        require(strategies[IStrategy(strategyAddress).underlyingAsset()] == address(0x0), "Strategy already exist");
+        require(IStrategy(strategyAddress).dacAddress() == _dacAddress, "DAC conflict");
+        strategies[IStrategy(strategyAddress).underlyingAsset()] = strategyAddress;
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
@@ -399,13 +401,16 @@ contract Product is ERC20, IProduct {
         return sharesValue(balanceOf(owner));
     } // for withdraw
 
-    function _depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal {
-        address assetAddress = IStrategy(strategyAddress).underlyingAsset(); // 바로 transfer
+    function _depositIntoStrategy(address strategyAddress, uint256 assetAmount) private returns(bool){
+        require(isActive, "Product is disabled now");
+        address assetAddress = IStrategy(strategyAddress).underlyingAsset();
+         // 실패하면 revert
         SafeERC20.safeTransfer(IERC20(assetAddress), strategyAddress, assetAmount); // token, to, value
+        return true;
     } 
 
-    function _redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal {
-        IStrategy(strategyAddress).withdrawToVault(assetAmount);
+    function _redeemFromStrategy(address strategyAddress, uint256 assetAmount) private returns(bool){
+        return IStrategy(strategyAddress).withdrawToProduct(assetAmount);
     }
 
     // asset amount 받고, 이에 맞는 share 개수 반환
