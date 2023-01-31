@@ -73,7 +73,10 @@ contract Product is ERC20, IProduct {
         require(dacAddress_ != address(0x0), "Invalid dac address");
         _dacAddress = dacAddress_;
         _dacName = dacName_;
+
+        require(underlyingAssetAddress_ != address(0x0), "Invalid Underlying Asset Address");
         _underlyingAssetAddress = underlyingAssetAddress_;
+        assets.push(AssetParams(_underlyingAssetAddress, 0, 0));
 
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
@@ -81,6 +84,9 @@ contract Product is ERC20, IProduct {
 
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
+            if(_underlyingAssetAddress == assetAddresses_[i]) {
+                continue;
+            }
             assets.push(AssetParams(assetAddresses_[i], 0, 0)); 
         }
 
