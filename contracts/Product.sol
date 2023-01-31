@@ -339,9 +339,9 @@ contract Product is ERC20, IProduct {
 
         // SELL
         for(uint i=0; i < assets.length; i++){
-            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
+            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
-            if (currentBalance > targetBalance*(1 + _deviationThreshold / 100000)) {
+            if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
                 redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
                 // TODO check redeem was successful
@@ -354,10 +354,10 @@ contract Product is ERC20, IProduct {
 
         // BUY
         for(uint i=0; i < assets.length; i++) {
-            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
+            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
             IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
-            if (currentBalance < targetBalance*(1 - _deviationThreshold / 100000)) {
+            if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
                 uint256 buyAmount = targetBalance - currentBalance;
 
                 // swap to underlying stablecoin
