@@ -13,12 +13,6 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 currentPrice;
     }
 
-    ///@dev Product에서 사용하는 strategy 1개의 정보를 담아놓는 구조체.
-    struct StrategyParams {
-        address strategyAddress;
-        address assetAddress;
-    }
-
     ///@dev MUST be emitted when tokens are deposited into the vault via the deposit methods
     event Deposit(
         address indexed sender,
@@ -46,9 +40,10 @@ interface IProduct is IERC20, IERC20Metadata {
     function currentAssets() external view returns(AssetParams[] memory); 
     function checkAsset(address assetAddress) external returns (bool isExist); 
     function checkStrategy(address strategyAddress) external returns(bool isExist);
-    function addStrategy(address newStrategyAddress) external;
+    function addStrategy(address assetAddress, address strategyAddress) external;
     function addAsset(address newAssetAddress) external;
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external; 
+    function updateDeviationThreshold(uint256 newDeviationThreshold) external;
     function updateFloatRatio(uint256 newFloatRatio) external;
 
     ///@notice Functions using the balance keyword return asset's balances(amount)
@@ -65,6 +60,4 @@ interface IProduct is IERC20, IERC20Metadata {
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256); 
     function rebalance() external;
 
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) external; 
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) external; 
 }

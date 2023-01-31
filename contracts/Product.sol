@@ -12,12 +12,13 @@ contract Product is ERC20, IProduct {
     using Math for uint256;
 
     AssetParams[] public assets;
-    StrategyParams[] public strategies;
+    mapping (address => address) strategies; // asset address => strategy address
     address[] withdrawalQueue;
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
     uint256 private _floatRatio;
+    uint256 private _deviationThreshold;
 
     bool private isActive;
 
@@ -57,7 +58,8 @@ contract Product is ERC20, IProduct {
         string memory dacName_, 
         address usdPriceModule_,
         address[] memory assetAddresses_, 
-        uint256 floatRatio_
+        uint256 floatRatio_,
+        uint256 deviationThreshold_
         ) 
         ERC20 (name_, symbol_)
     {
@@ -79,6 +81,9 @@ contract Product is ERC20, IProduct {
 
         require((floatRatio_ >= 0) || (floatRatio_ <= 100000), "Invalid float ratio");
         _floatRatio = floatRatio_;
+        
+        require((deviationThreshold_ >= 0) || (deviationThreshold_ <= 10000), "Invalid Rebalance Threshold");
+        _deviationThreshold = deviationThreshold_;
     }
 
     ///@notice Return current asset statistics.
@@ -90,17 +95,18 @@ contract Product is ERC20, IProduct {
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
     }
 
-    function addStrategy(address newStrategyAddress) external override onlyDac {
-        require(newStrategyAddress!=address(0x0), "Invalid strategy address");
-        strategies.push(StrategyParams(newStrategyAddress, IStrategy(newStrategyAddress).underlyingAsset()));
-    }
-
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
     function addAsset(address newAssetAddress) external override {
         require(newAssetAddress!=address(0x0), "Invalid asset address");
         require(!checkAsset(newAssetAddress), "Asset Already Exists");
         assets.push(AssetParams(newAssetAddress, 0, 0)); 
+    }
+
+    function addStrategy(address assetAddress, address strategyAddress) external {
+        require(checkAsset(assetAddress), "Asset Doesn't Exist");
+        require(strategyAddress!=address(0x0), "Invalid Strategy address");
+        strategies[assetAddress] = strategyAddress;
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
@@ -126,6 +132,12 @@ contract Product is ERC20, IProduct {
     function updateFloatRatio(uint256 newFloatRatio) external override {
         require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
         _floatRatio = newFloatRatio;
+    }
+
+    ///@notice Update rebalance threshold. It will reflect at the next rebalancing or withdrawal.
+    function updateDeviationThreshold(uint256 newDeviationThreshold) external override onlyDac {
+        require((newDeviationThreshold >= 0) || (newDeviationThreshold <= 10000), "Invalid Rebalance Threshold");
+        _deviationThreshold = newDeviationThreshold;
     }
 
     ///@notice Returns decimals of the product share token.
@@ -164,8 +176,8 @@ contract Product is ERC20, IProduct {
     }
 
     function checkStrategy(address strategyAddress) public view override returns(bool) {
-        for (uint i=0; i<strategies.length; i++){
-            if(strategies[i].strategyAddress == strategyAddress) {
+        for (uint i=0; i<assets.length; i++){
+            if(strategies[assets[i].assetAddress] == strategyAddress) {
                 return true;
             }
         }
@@ -181,11 +193,8 @@ contract Product is ERC20, IProduct {
     ///@notice Calculates the whole amount for one of underlying assets the product holds.
     function assetBalance(address assetAddress) public view override returns(uint256) {
         uint256 totalBalance = assetFloatBalance(assetAddress);
-        for (uint i = 0; i < strategies.length; i++) {
-            if(strategies[i].assetAddress == assetAddress) {
-                totalBalance += IStrategy(strategies[i].strategyAddress).totalAssets();
-            }
-        }
+        IStrategy assetStrategy = IStrategy(strategies[assetAddress]);
+        totalBalance += assetStrategy.totalAssets();
         return totalBalance;
     }
 
@@ -240,8 +249,7 @@ contract Product is ERC20, IProduct {
         
         require(assets.length != 0);
         require(withdrawalQueue.length != 0);
-        require(strategies.length != 0);
-        require(strategies.length == assets.length);
+        // Todo: strategy 존재성 검사
 
         uint sumOfWeights = 0;
         for(uint i=0; i<assets.length; i++) {
@@ -263,7 +271,7 @@ contract Product is ERC20, IProduct {
     }
 
     function updateWithdrawalQueue(address[] memory newWithdrawalQueue) external onlyDac {
-        require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
+        // require(newWithdrawalQueue.length <= strategies.length, "Too many elements");
 
         for (uint i=0; i<newWithdrawalQueue.length; i++){
             require(checkStrategy(newWithdrawalQueue[i]), "Strategy doesn't exist");
@@ -308,40 +316,45 @@ contract Product is ERC20, IProduct {
     }
 
     function rebalance() external {
-        uint256 portfolioValue = 0;
+        uint256 curretPortfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
             assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
-            portfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
+            curretPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
         }
 
+
+        // SELL
         for(uint i=0; i < assets.length; i++){
-            uint256 targetBalance = (assets[i].targetWeight * portfolioValue) / assets[i].currentPrice;
-            uint256 currentBalance = assetFloatBalance(assets[i].assetAddress); // float balance
-            if (currentBalance > targetBalance) {
-                // Sell
+            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
+            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            if (currentBalance > targetBalance*(1 + _deviationThreshold / 100000)) {
                 uint256 sellAmount = currentBalance - targetBalance;
+                redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
                 
-                // float으로 부족할 경우
-                    
-                // withdrawFromStrategy()
+                // swap to underlying stablecoin
                 
             }
-            else if (currentBalance < targetBalance) {
-                // Buy
-                // float으로 충분할 경우
+        }
+
+        // BUY
+        for(uint i=0; i < assets.length; i++) {
+            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
+            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
+            if (currentBalance < targetBalance*(1 - _deviationThreshold / 100000)) {
                 uint256 buyAmount = targetBalance - currentBalance;
 
-                // float으로 부족할 경우
+                // swap to underlying stablecoin
+                
             }
-
-            // depositIntoStrategy()
-
-            
+            uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
+            if(newFloatBalance > targetBalance*_floatRatio){
+                depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio);
+            } 
         }
         
-        // emit Rebalance(block.timestamp);
+        // emit Rebalance(address(this), currentAssets(), block.timestamp);
     }
-
 
     // 몇 달러 max로 deposit할 수 있는지 반환
     function maxDepositValue(address receiver) public pure returns (uint256){
