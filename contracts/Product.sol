@@ -315,7 +315,7 @@ contract Product is ERC20, IProduct {
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256) {
         // dac은 deactive한 상태에도 넣을 수 있음
         // deactive임 + dac이 아님 -> deposit 불가능
-        require((_msgSender() == _dacAddress) || isActive, "Product is disabled now");
+        require((_msgSender() == _dacAddress) || isActive, "Deposit is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
         // deposit 양 maxDeposit이랑 비교 -> 50(55)달러가 상한선
         // max deposit 계산 후 require
