@@ -99,7 +99,7 @@ contract Product is ERC20, IProduct {
         _deviationThreshold = deviationThreshold_;
     }
 
-    function currentStrategies() external view returns(address[] memory) {
+    function currentStrategies() external view override returns(address[] memory) {
         address[] memory tempStrategyAddresses = new address[](assets.length);
         uint cnt = 0;
 
@@ -190,27 +190,27 @@ contract Product is ERC20, IProduct {
     } 
 
     ///@notice Returns dac name.
-    function dacName() public view returns(string memory) {
+    function dacName() public view override returns(string memory) {
         return _dacName;
     }
 
     ///@notice Returns dac address(typically equal to product deployer).
-    function dacAddress() public view returns(address) {
+    function dacAddress() public view override returns(address) {
         return _dacAddress;
     }
 
     ///@notice Returns the date when the product was deployed in Unix timestamp format.
-    function sinceDate() public view returns(uint256) {
+    function sinceDate() public view override returns(uint256) {
         return _sinceDate;
     }
 
     ///@notice Returns current target float ratio.
-    function currentFloatRatio() public view returns(uint256) {
+    function currentFloatRatio() public view override returns(uint256) {
         return _floatRatio;
     }
 
     ///@notice Check if the asset address is the asset currently being handled in the product.
-    function checkAsset(address _assetAddress) public view override returns (bool) {
+    function checkAsset(address _assetAddress) public view returns (bool) {
         for (uint i = 0; i < assets.length; i++) {
             if(assets[i].assetAddress == _assetAddress) {
                 return true;
@@ -219,7 +219,7 @@ contract Product is ERC20, IProduct {
         return false;
     }
 
-    function checkStrategy(address strategyAddress) public view override returns(bool) {
+    function checkStrategy(address strategyAddress) public view returns(bool) {
         for (uint i=0; i<assets.length; i++){
             if(strategies[assets[i].assetAddress] == strategyAddress) {
                 return true;
@@ -256,7 +256,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Calculates the total value of floats the product holds.
-    function totalFloatValue() public view override returns (uint256) {
+    function totalFloatValue() public view returns (uint256) {
         uint256 totalValue = 0;
         for (uint256 i=0; i<assets.length; i++) {
             totalValue += _usdPriceModule.getAssetUsdValue(assets[i].assetAddress, assetFloatBalance(assets[i].assetAddress));
@@ -277,7 +277,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Returns the float value for one of the underlying assets of the product.
-    function assetFloatValue(address assetAddress) public view override returns(uint256) {
+    function assetFloatValue(address assetAddress) public view returns(uint256) {
         uint totalValue = 0;
         for (uint256 i=0; i < assets.length; i++) {
             if(assets[i].assetAddress == assetAddress) {
@@ -288,7 +288,7 @@ contract Product is ERC20, IProduct {
         return totalValue;
     }
 
-    function checkActivation() public view returns(bool) {
+    function checkActivation() public view override returns(bool) {
         return isActive;
     }
 
@@ -336,7 +336,7 @@ contract Product is ERC20, IProduct {
         emit UpdateWithdrawalQueue(_msgSender(), newWithdrawalQueue, block.timestamp);
     }
 
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256) {
+    function deposit(address assetAddress, uint256 assetAmount, address receiver) external override returns (uint256) {
         // dac은 deactive한 상태에도 넣을 수 있음
         // deactive임 + dac이 아님 -> deposit 불가능
         require((_msgSender() == _dacAddress) || isActive, "Deposit is disabled now");
@@ -357,7 +357,7 @@ contract Product is ERC20, IProduct {
         return shareAmount;
     }
 
-    function withdraw(address assetAddress, uint256 shareAmount, address receiver, address owner) external returns (uint256) {
+    function withdraw(address assetAddress, uint256 shareAmount, address receiver, address owner) external override returns (uint256) {
         require((_msgSender() != _dacAddress) && !isActive, "Withdrawal is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
 
@@ -370,7 +370,7 @@ contract Product is ERC20, IProduct {
         require(shareAmount <= balanceOf(owner), "Too much withdrawal");
 
         // 필요한 value가 얼만큼인지, asset으로 따지면 얼만큼이 되는지 확인
-        uint256 withdrawalAmount = _valueToAssets(assetAddress, sharesValue(shareAmount));
+        uint256 withdrawalAmount = _valueToAssets(assetAddress, shareValue(shareAmount));
         require(withdrawalAmount > 0, "short of withdrawal");
 
         // 해당 withdrawalAmount를 asset의 float과 비교
@@ -465,7 +465,7 @@ contract Product is ERC20, IProduct {
         return shareAmount;
     }
 
-    function rebalance() external {
+    function rebalance() external override onlyDac {
         require(isActive, "Product is disabled now");
         
         uint256 curretPortfolioValue = 0;
@@ -510,13 +510,13 @@ contract Product is ERC20, IProduct {
     }
 
     // 몇 달러 max로 deposit할 수 있는지 반환
-    function maxDepositValue(address receiver) public pure returns (uint256){
+    function maxDepositValue(address receiver) public pure override returns (uint256){
         return 55 * 1e18;
     } // for deposit
 
     // 몇 달러 max로 withdraw할 수 있는지 반환
-    function maxWithdrawValue(address owner) public view returns (uint256) {
-        return sharesValue(balanceOf(owner));
+    function maxWithdrawValue(address owner) public view override returns (uint256) {
+        return shareValue(balanceOf(owner));
     } // for withdraw
 
     function _depositIntoStrategy(address strategyAddress, uint256 assetAmount) private returns(bool){
@@ -532,14 +532,14 @@ contract Product is ERC20, IProduct {
     }
 
     // asset amount 받고, 이에 맞는 share 개수 반환
-    function convertToShares(address assetAddress, uint256 assetAmount) public view returns(uint256 shareAmount) {
+    function convertToShares(address assetAddress, uint256 assetAmount) public view override returns(uint256 shareAmount) {
         uint256 _assetValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
         return _valueToShares(_assetValue);
     }
 
     // share amount 받고, 이에 맞는 asset 개수 반환
-    function convertToAssets(address assetAddress, uint256 shareAmount) public view returns(uint256 assetAmount) {
-        uint256 _shareValue = sharesValue(shareAmount);
+    function convertToAssets(address assetAddress, uint256 shareAmount) public view override returns(uint256 assetAmount) {
+        uint256 _shareValue = shareValue(shareAmount);
         return _valueToAssets(assetAddress, _shareValue);
     }
     
