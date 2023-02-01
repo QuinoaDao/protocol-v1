@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.17;
 
 import "./IProduct.sol";
 import "./IStrategy.sol";
 import "./UsdPriceModule.sol";
+import "./ISwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -18,6 +19,7 @@ contract Product is ERC20, IProduct {
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
     uint256 private _floatRatio;
     uint256 private _deviationThreshold;
+    address public _underlyingAssetAddress;
 
     bool private isActive;
 
@@ -26,6 +28,7 @@ contract Product is ERC20, IProduct {
     uint256 private _sinceDate;
 
     UsdPriceModule private _usdPriceModule;
+    ISwapModule private _swapModule;
 
     event ActivateProduct(
         address indexed caller,
@@ -55,6 +58,8 @@ contract Product is ERC20, IProduct {
         address dacAddress_, 
         string memory dacName_, 
         address usdPriceModule_,
+        address swapModule_,
+        address underlyingAssetAddress_,
         address[] memory assetAddresses_, 
         uint256 floatRatio_,
         uint256 deviationThreshold_
@@ -69,11 +74,19 @@ contract Product is ERC20, IProduct {
         _dacAddress = dacAddress_;
         _dacName = dacName_;
 
+        require(underlyingAssetAddress_ != address(0x0), "Invalid Underlying Asset Address");
+        _underlyingAssetAddress = underlyingAssetAddress_;
+        assets.push(AssetParams(_underlyingAssetAddress, 0, 0));
+
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
+        _swapModule = ISwapModule(swapModule_);
 
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
+            if(_underlyingAssetAddress == assetAddresses_[i]) {
+                continue;
+            }
             assets.push(AssetParams(assetAddresses_[i], 0, 0)); 
         }
 
@@ -90,7 +103,12 @@ contract Product is ERC20, IProduct {
     }
 
     function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
+        require(newUsdPriceModule != address(_usdPriceModule), "Duplicated Vaule input");
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
+    }
+    function updateSwapModule(address newSwapModule) external onlyDac {
+        require(newSwapModule != address(_swapModule), "Duplicated Vaule input");
+        _swapModule = ISwapModule(newSwapModule);
     }
 
     ///@notice Add one underlying asset to be handled by the product. 
@@ -128,12 +146,14 @@ contract Product is ERC20, IProduct {
 
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
     function updateFloatRatio(uint256 newFloatRatio) external override {
+        require(newFloatRatio != _floatRatio, "Duplicated Vaule input");
         require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
         _floatRatio = newFloatRatio;
     }
 
     ///@notice Update rebalance threshold. It will reflect at the next rebalancing or withdrawal.
     function updateDeviationThreshold(uint256 newDeviationThreshold) external override onlyDac {
+        require(newDeviationThreshold != _deviationThreshold, "Duplicated Vaule input");
         require((newDeviationThreshold >= 0) || (newDeviationThreshold <= 10000), "Invalid Rebalance Threshold");
         _deviationThreshold = newDeviationThreshold;
     }
@@ -323,38 +343,40 @@ contract Product is ERC20, IProduct {
 
         // SELL
         for(uint i=0; i < assets.length; i++){
-            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
+            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
-            if (currentBalance > targetBalance*(1 + _deviationThreshold / 100000)) {
+            if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount);
-                
-                // swap to underlying stablecoin
-                
+                require(redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
+            
+                IERC20(assets[i].assetAddress).approve(_swapModule.getRouterAddress(), sellAmount);
+                _swapModule.swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
         }
 
         // BUY
         for(uint i=0; i < assets.length; i++) {
-            uint256 targetBalance = ((assets[i].targetWeight / 100000) * curretPortfolioValue) / assets[i].currentPrice;
+            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
             IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
-            if (currentBalance < targetBalance*(1 - _deviationThreshold / 100000)) {
+            if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
                 uint256 buyAmount = targetBalance - currentBalance;
 
-                // swap to underlying stablecoin
-                
+                uint256 amountInEstimated = _swapModule.estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
+                IERC20(_underlyingAssetAddress).approve(_swapModule.getRouterAddress(), amountInEstimated);
+                _swapModule.swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
             if(newFloatBalance > targetBalance*_floatRatio){
-                depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio);
+                require(depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio), "Deposit into Strategy Failed");
+                
             } 
         }
         
-        // emit Rebalance(address(this), currentAssets(), block.timestamp);
+        emit Rebalance(address(this), assets, block.timestamp);
     }
 
-    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal {} 
-    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal {}
+    function depositIntoStrategy(address strategyAddress, uint256 assetAmount) internal returns(bool) {} 
+    function redeemFromStrategy(address strategyAddress, uint256 assetAmount) internal returns(bool) {}
 
 }

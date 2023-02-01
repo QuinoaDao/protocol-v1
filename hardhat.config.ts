@@ -15,7 +15,7 @@ const config: HardhatUserConfig = {
     ],
     overrides: {
       "contracts/SwapModule.sol": {
-        version: "0.6.6",
+        version: "0.8.17",
         settings: {},
       },
     },
