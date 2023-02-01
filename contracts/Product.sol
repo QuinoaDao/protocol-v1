@@ -310,7 +310,7 @@ contract Product is ERC20, IProduct {
 
         // dac이 일정 금액 이상 deposit하고 있어야 함
         // 1인당 50달러 * 4명
-        require(balanceOf(_dacAddress) > (200 * 1e18));
+        require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18));
 
         isActive = true;
 
