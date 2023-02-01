@@ -559,14 +559,14 @@ contract Product is ERC20, IProduct {
     }
 
     // shareToken 1개의 가격 정보 반환
-    // vault가 비어있다면 0 반환
-    function sharePrice() public view returns(uint256) {
-        return totalSupply() > 0 ? portfolioValue() * 1e18 / totalSupply() : 0;
+    // vault가 비어있다면 1$ 반환
+    function sharePrice() public view override returns(uint256) {
+        return totalSupply() > 0 ? portfolioValue() * 1e18 / totalSupply() : 10**decimals();
     }
 
     // share Token 여러개의 가격 정보 반환
-    // vault가 비어있다면 0 반환
-    function sharesValue(uint256 shareAmount) public view returns(uint256) {
-        return totalSupply() > 0 ? (portfolioValue() * shareAmount) / totalSupply() : 0;
+    // vault가 비어있다면 1$ 반환
+    function shareValue(uint256 shareAmount) public view override returns(uint256) {
+        return totalSupply() > 0 ? (portfolioValue() * shareAmount) / totalSupply() : 10**decimals();
     }
 }
