@@ -379,29 +379,33 @@ contract Product is ERC20, IProduct {
             // 1차 float 확보 과정 - float을 돌면서 asset float 확보 
             for (uint i=0; i<assets.length; i++){
                 // 만약, 현재 asset 주소랑 assets의 주소가 같으면 pass
-                if(assets[i].assetAddress == assetAddress) continue;
+                address floatAssetAddress = assets[i].assetAddress;
+                if(floatAssetAddress == assetAddress) continue;
 
                 // float Balance를 모두 확보 했는지 확인
                 uint256 floatAmount= _assetBalanceOf(assetAddress, address(this));
                 // 만약, 충분한 asset이 확보 되었다면 break (더 이상 자금을 확보할 이유가 없음)
                 if(floatAmount >= withdrawalAmount) break;
+                
+                // 현재 탐색중인 float에서 확보해야만 하는 float balance가 얼마인지 확인
+                uint256 needAmount = _swapModule.estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress);
+                
+                // 현재 탐색중인 float이 내가 확보해야만 하는 float balance보다 큰지, 작은지 비교 
+                // 크다면 -> 현재 존재하는 float 전부를 withdraw 가능하도록 유저가 원하는 token으로 스왑 -> 일부분의 자금을 확보
+                if(needAmount > _assetBalanceOf(floatAssetAddress, address(this))) {
+                    needAmount =  _assetBalanceOf(floatAssetAddress, address(this));
 
-                // 해당 float에서 확보할 수 있는 자산이 얼마나 되는지 확인
-                // 내가 필요한 양 vs Float에서 뺄 수 있는 양
-                // 현재 assets[i] 기준의 양
-                uint256 sellAmount = _swapModule.estimateSwapInputAmount(withdrawalAmount - floatAmount, assets[i].assetAddress, assetAddress);
-                sellAmount = 
-                    sellAmount > _assetBalanceOf(assets[i].assetAddress, address(this)) ?
-                    _assetBalanceOf(assets[i].assetAddress, address(this))
-                    :
-                    sellAmount;
+                    // 해당 float에서 확보할 수 있는 자산이 하나도 없는 경우 pass
+                    if(_swapModule.estimateSwapOutputAmount(needAmount, floatAssetAddress, assetAddress) == 0) continue;
 
-                // 해당 asset float에서 뺄 수 있는 금액이 0이라면 pass(확보할 자산이 없음)
-                if(sellAmount == 0) continue;
-
-                // assetAddress로 float swap -> 자금 확보
-                IERC20(assets[i].assetAddress).approve(_swapModule.getRouterAddress(), sellAmount);
-                _swapModule.swapExactInput(sellAmount, assets[i].assetAddress, assetAddress, address(this));
+                    IERC20(floatAssetAddress).approve(_swapModule.getRouterAddress(), needAmount);
+                    _swapModule.swapExactInput(needAmount, floatAssetAddress, assetAddress, address(this));
+                }
+                // 작다면 -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
+                else {
+                    IERC20(floatAssetAddress).approve(_swapModule.getRouterAddress(), needAmount);
+                    _swapModule.swapExactOutput(withdrawalAmount - floatAmount, assets[i].assetAddress, assetAddress, address(this));
+                }
             }
 
             // 2차 float 확보 과정 - withdrawal queue를 돌면서 asset float 확보
@@ -411,8 +415,9 @@ contract Product is ERC20, IProduct {
                 // 만약, 충분한 asset이 확보 되었다면 break (더 이상 자금을 확보할 이유가 없음)
                 if(floatAmount >= withdrawalAmount) break;
 
+                address strategyAssetAddress = IStrategy(withdrawalQueue[i]).underlyingAsset();
                 // 유저가 원하는 assetAddress와 해당 strategy가 다루는 assetAddress가 같은지 확인
-                if(assetAddress == IStrategy(withdrawalQueue[i]).underlyingAsset()) { // asset address와 같은 경우
+                if(assetAddress == strategyAssetAddress) { // asset address와 같은 경우
                     uint256 needAmount = 
                         withdrawalAmount - floatAmount > IStrategy(withdrawalQueue[i]).totalAssets() ?
                         IStrategy(withdrawalQueue[i]).totalAssets()
@@ -426,31 +431,33 @@ contract Product is ERC20, IProduct {
                     _redeemFromStrategy(withdrawalQueue[i], needAmount);
                 }
                 else { // 다른 경우
-                    // 해당 strategy에서 확보할 수 있는 자산이 얼마나 되는지 확인
-                    // 내가 필요한 양 vs strategy에서 뺄 수 있는 양
-                    // 현재 assets[i] 기준의 양
-                    uint256 sellAmount = _swapModule.estimateSwapInputAmount(withdrawalAmount - floatAmount, IStrategy(withdrawalQueue[i]).underlyingAsset(), assetAddress);
-                    sellAmount = 
-                        sellAmount > IStrategy(withdrawalQueue[i]).totalAssets() ?
-                        IStrategy(withdrawalQueue[i]).totalAssets()
-                        :
-                        sellAmount;
+                    // 현재 탐색중인 float에서 확보해야만 하는 float balance가 얼마인지 확인
+                    uint256 needAmount = _swapModule.estimateSwapInputAmount(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress);
+                    
+                    // 현재 탐색중인 float이 내가 확보해야만 하는 float balance보다 큰지, 작은지 비교 
+                    // 크다면 -> 현재 존재하는 float 전부를 withdraw 가능하도록 유저가 원하는 token으로 스왑 -> 일부분의 자금을 확보
+                    if(needAmount > IStrategy(withdrawalQueue[i]).totalAssets()) {
+                        needAmount =  IStrategy(withdrawalQueue[i]).totalAssets();
 
-                    // 해당 strategy에서 뺄 수 있는 금액이 0이라면 pass(확보할 자산이 없음)
-                    if(sellAmount == 0) continue;
+                        // 해당 float에서 확보할 수 있는 자산이 하나도 없는 경우 pass
+                        if(_swapModule.estimateSwapOutputAmount(needAmount, strategyAssetAddress, assetAddress) == 0) continue;
 
-                    // assetAddress로 float swap -> 자금 확보
-                    IERC20(assets[i].assetAddress).approve(_swapModule.getRouterAddress(), sellAmount);
-                    _swapModule.swapExactInput(sellAmount, assets[i].assetAddress, assetAddress, address(this));
+                        IERC20(strategyAssetAddress).approve(_swapModule.getRouterAddress(), needAmount);
+                        _swapModule.swapExactInput(needAmount, strategyAssetAddress, assetAddress, address(this));
+                    }
+                    // 작다면 -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
+                    else {
+                        IERC20(strategyAssetAddress).approve(_swapModule.getRouterAddress(), needAmount);
+                        _swapModule.swapExactOutput(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress, address(this));
+                    }
                 }
             }
 
             // float 확보 실패 - 확보한 float 만큼으로 강제로 withdraw 가능 amount 조정
-            withdrawalAmount = 
-                withdrawalAmount>IERC20(assetAddress).balanceOf(address(this)) ?
-                IERC20(assetAddress).balanceOf(address(this)) 
-                : 
-                withdrawalAmount;
+            if(withdrawalAmount>IERC20(assetAddress).balanceOf(address(this))) {
+                withdrawalAmount = IERC20(assetAddress).balanceOf(address(this));
+                shareAmount = convertToShares(assetAddress, withdrawalAmount);
+            }
         }
         
         // withdraw amount가 float보다 더 작은 상황 (1차 필터링 바로 성공)
@@ -473,7 +480,6 @@ contract Product is ERC20, IProduct {
             assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
             curretPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
         }
-
 
         // SELL
         for(uint i=0; i < assets.length; i++){
