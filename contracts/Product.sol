@@ -229,7 +229,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Returns the float amount for one of the underlying assets of the product.
-    function assetFloatBalance(address assetAddress) public view override returns(uint256) {
+    function assetFloatBalance(address assetAddress) public view returns(uint256) {
         require(checkAsset(assetAddress), "Asset Doesn't Exist");
         return _assetBalanceOf(assetAddress, address(this));
     }
