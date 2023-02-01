@@ -137,13 +137,13 @@ contract Product is ERC20, IProduct {
 
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
-    function addAsset(address newAssetAddress) external override {
+    function addAsset(address newAssetAddress) external onlyDac {
         require(newAssetAddress!=address(0x0), "Invalid asset address");
         require(!checkAsset(newAssetAddress), "Asset Already Exists");
         assets.push(AssetParams(newAssetAddress, 0, 0)); 
     }
 
-    function addStrategy(address strategyAddress) external override {
+    function addStrategy(address strategyAddress) external onlyDac {
         require(checkAsset(IStrategy(strategyAddress).underlyingAsset()), "Asset Doesn't Exist");
         require(strategyAddress!=address(0x0), "Invalid Strategy address");
         require(strategies[IStrategy(strategyAddress).underlyingAsset()] == address(0x0), "Strategy already exist");
@@ -152,7 +152,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
-    function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external override {
+    function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external onlyDac {
         uint256 sumOfWeight = 0;
         for (uint i = 0; i < assetAddresses.length; i++) {
             bool found = false;
@@ -171,14 +171,14 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
-    function updateFloatRatio(uint256 newFloatRatio) external override {
+    function updateFloatRatio(uint256 newFloatRatio) external onlyDac {
         require(newFloatRatio != _floatRatio, "Duplicated Vaule input");
         require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
         _floatRatio = newFloatRatio;
     }
 
     ///@notice Update rebalance threshold. It will reflect at the next rebalancing or withdrawal.
-    function updateDeviationThreshold(uint256 newDeviationThreshold) external override onlyDac {
+    function updateDeviationThreshold(uint256 newDeviationThreshold) external onlyDac {
         require(newDeviationThreshold != _deviationThreshold, "Duplicated Vaule input");
         require((newDeviationThreshold >= 0) || (newDeviationThreshold <= 10000), "Invalid Rebalance Threshold");
         _deviationThreshold = newDeviationThreshold;
