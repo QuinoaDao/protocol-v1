@@ -99,7 +99,7 @@ contract Product is ERC20, IProduct {
         _deviationThreshold = deviationThreshold_;
     }
 
-    function currentStrategies() external view override returns(address[] memory) {
+    function currentStrategies() public view override returns(address[] memory) {
         address[] memory tempStrategyAddresses = new address[](assets.length);
         uint cnt = 0;
 
@@ -122,7 +122,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Return current asset statistics.
-    function currentAssets() external view override returns(AssetParams[] memory) {
+    function currentAssets() public view override returns(AssetParams[] memory) {
         return assets;
     }
 
@@ -130,6 +130,7 @@ contract Product is ERC20, IProduct {
         require(newUsdPriceModule != address(_usdPriceModule), "Duplicated Vaule input");
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
     }
+
     function updateSwapModule(address newSwapModule) external onlyDac {
         require(newSwapModule != address(_swapModule), "Duplicated Vaule input");
         _swapModule = ISwapModule(newSwapModule);
@@ -185,7 +186,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Returns decimals of the product share token.
-    function decimals() public view virtual override(ERC20, IERC20Metadata) returns (uint8) {
+    function decimals() public view override(ERC20, IERC20Metadata) returns (uint8) {
         return 18;
     } 
 
@@ -318,7 +319,7 @@ contract Product is ERC20, IProduct {
 
     function deactivateProduct() external onlyDac {
         require(isActive);
-        // deactivate 상태일 때 불가능한 것들 생각해보기 -> require문 
+
         isActive = false;
 
         emit DeactivateProduct(_msgSender(), block.timestamp);
