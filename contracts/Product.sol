@@ -106,12 +106,10 @@ contract Product is ERC20, IProduct {
         require(newUsdPriceModule != address(_usdPriceModule), "Duplicated Vaule input");
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
     }
-    
     function updateSwapModule(address newSwapModule) external onlyDac {
         require(newSwapModule != address(_swapModule), "Duplicated Vaule input");
         _swapModule = ISwapModule(newSwapModule);
     }
-
 
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.

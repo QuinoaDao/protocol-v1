@@ -79,6 +79,7 @@ contract SwapModule is ISwapModule{
         path[1] = outputToken;
 
         uint amountIn = UniswapV2Library.getAmountIn(amountOut, inputTokenReserve, outputTokenReserve);
-        return amountIn;
+        uint tokenAmountInMax = amountIn * (1000 + 5) / 1000;
+        return tokenAmountInMax;
     }
 }
