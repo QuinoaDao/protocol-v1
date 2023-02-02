@@ -37,27 +37,40 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 time
     );
 
-    function currentAssets() external view returns(AssetParams[] memory); 
-    function checkAsset(address assetAddress) external returns (bool isExist); 
-    function checkStrategy(address strategyAddress) external returns(bool isExist);
-    function addStrategy(address assetAddress, address strategyAddress) external;
-    function addAsset(address newAssetAddress) external;
-    function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external; 
-    function updateDeviationThreshold(uint256 newDeviationThreshold) external;
-    function updateFloatRatio(uint256 newFloatRatio) external;
-
-    ///@notice Functions using the balance keyword return asset's balances(amount)
-    function assetBalance(address assetAddress) external view returns(uint256); 
-    function assetFloatBalance(address assetAddress) external view returns(uint256); 
-
-    ///@notice Functions that include the value keyword return values reflecting the market price of that asset
+    function currentStrategies() external view returns(address[] memory);
+    function currentAssets() external view returns(AssetParams[] memory);
+    function dacName() external view returns(string memory);
+    function dacAddress() external view returns(address);
+    function sinceDate() external view returns(uint256);
+    function currentFloatRatio() external view returns(uint256);
+    function assetBalance(address assetAddress) external view returns(uint256);
     function portfolioValue() external view returns(uint256);
-    function assetValue(address assetAddress) external view returns (uint256); 
-    function totalFloatValue() external view returns (uint256);
-    function assetFloatValue(address assetAddress) external view returns(uint256);
+    function assetValue(address assetAddress) external view returns (uint256);
+    function checkActivation() external view returns(bool);
 
-    function withdraw(address assetAddress, uint256 assetAmount, address receiver, address owner) external returns (uint256 shares); 
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external returns (uint256); 
+
+    function deposit(
+        address assetAddress, 
+        uint256 assetAmount, 
+        address receiver
+    ) external  returns (uint256);
+
+    function withdraw(
+        address assetAddress, 
+        uint256 shareAmount,
+        address receiver, 
+        address owner
+    ) external returns (uint256);
+
     function rebalance() external;
+
+    function maxDepositValue(address receiver) external returns(uint256);
+    function maxWithdrawValue(address owner) external returns (uint256);
+
+    function convertToShares(address assetAddress, uint256 assetAmount) external returns(uint256 shareAmount);
+    function convertToAssets(address assetAddress, uint256 shareAmount) external returns(uint256 assetAmount);
+
+    function sharePrice() external returns(uint256);
+    function shareValue(uint256 shareAmount) external returns(uint256);
 
 }
