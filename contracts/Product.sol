@@ -187,7 +187,7 @@ contract Product is ERC20, IProduct {
     }
 
     ///@notice Returns decimals of the product share token.
-    function decimals() public view override(ERC20, IERC20Metadata) returns (uint8) {
+    function decimals() public pure override(ERC20, IERC20Metadata) returns (uint8) {
         return 18;
     } 
 
