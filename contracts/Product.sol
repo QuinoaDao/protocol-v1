@@ -375,7 +375,7 @@ contract Product is ERC20, IProduct {
         require(withdrawalAmount > 0, "short of withdrawal");
 
         // 해당 withdrawalAmount를 asset의 float과 비교
-        // asset의 float보다 withdrawalAmount가 적다면, 우선 float을 순회하고, 이후 withdrawal queue를 순회하는 로직이 필요
+        // asset의 float보다 withdrawalAmount가 크다면, 우선 float을 순회하고, 이후 withdrawal queue를 순회하는 로직이 필요
         if (_assetBalanceOf(assetAddress, address(this)) < withdrawalAmount) { // withdraw 해야 할 amount가 더 많은 상황 (1차 필터링)
             // 1차 float 확보 과정 - float을 돌면서 asset float 확보 
             for (uint i=0; i<assets.length; i++){
@@ -392,7 +392,8 @@ contract Product is ERC20, IProduct {
                 uint256 needAmount = _swapModule.estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress);
                 
                 // 현재 탐색중인 float이 내가 확보해야만 하는 float balance보다 큰지, 작은지 비교 
-                // 크다면 -> 현재 존재하는 float 전부를 withdraw 가능하도록 유저가 원하는 token으로 스왑 -> 일부분의 자금을 확보
+                // 내가 확보해야하는 float balance가 더 크다면(=현재 탐색중이 float이 부족하다면) 
+                // -> 현재 존재하는 float 전부를 withdraw 가능하도록 유저가 원하는 token으로 스왑 -> 일부분의 자금을 확보
                 if(needAmount > _assetBalanceOf(floatAssetAddress, address(this))) {
                     needAmount =  _assetBalanceOf(floatAssetAddress, address(this));
 
@@ -402,7 +403,8 @@ contract Product is ERC20, IProduct {
                     IERC20(floatAssetAddress).approve(_swapModule.getRouterAddress(), needAmount);
                     _swapModule.swapExactInput(needAmount, floatAssetAddress, assetAddress, address(this));
                 }
-                // 작다면 -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
+                // 내가 확보해야하는 float balance가 더 작다면(=현재 탐색중인 float이 충분히 많은 경우) 
+                // -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
                 else {
                     IERC20(floatAssetAddress).approve(_swapModule.getRouterAddress(), needAmount);
                     _swapModule.swapExactOutput(withdrawalAmount - floatAmount, assets[i].assetAddress, assetAddress, address(this));
