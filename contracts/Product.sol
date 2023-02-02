@@ -360,7 +360,7 @@ contract Product is ERC20, IProduct {
     }
 
     function withdraw(address assetAddress, uint256 shareAmount, address receiver, address owner) external override returns (uint256) {
-        require((_msgSender() != _dacAddress) && !isActive, "Withdrawal is disabled now");
+        require((_msgSender() != _dacAddress) || !isActive, "Withdrawal is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
 
         // share값이 max인지 확인
