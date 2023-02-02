@@ -106,6 +106,7 @@ contract Product is ERC20, IProduct {
         for (uint i=0; i<assets.length; i++){
             if(strategies[assets[i].assetAddress] != address(0x0)) {
                 tempStrategyAddresses[cnt] = strategies[assets[i].assetAddress];
+                cnt += 1;
             }
         }
 
