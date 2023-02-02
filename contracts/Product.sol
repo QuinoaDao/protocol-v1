@@ -520,8 +520,9 @@ contract Product is ERC20, IProduct {
     }
 
     // 몇 달러 max로 deposit할 수 있는지 반환
-    function maxDepositValue(address receiver) public pure override returns (uint256){
-        return 55 * 1e18;
+    function maxDepositValue(address receiver) public view override returns (uint256){
+        if(receiver == _dacAddress) return type(uint256).max;
+        else return 55 * 1e18;
     } // for deposit
 
     // 몇 달러 max로 withdraw할 수 있는지 반환
