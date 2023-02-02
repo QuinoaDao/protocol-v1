@@ -562,10 +562,9 @@ contract Product is ERC20, IProduct {
 
     // share의 dollar 양 받고, asset의 개수 반환
     // 수식 : withdraw share value / asset Price
-    // vault가 비어있다면 1:1 반환
-    // 혹시나 withdraw 같은 것을 해야할 경우, asset으로 바꾼 양이 0개면 if문을 통과할 수도 있을 것 같다는 생각이 들었음
-    function _valueToAssets(address assetAddress, uint256 _shareValue) internal view returns(uint256 assetAmount) {
-        return totalSupply() > 0 ? _shareValue / _usdPriceModule.getAssetUsdPrice(assetAddress) : _shareValue;
+    // vault가 비어있어도 share가 존재한다는 가정 하에 _shareValue가 들어온 것이므로 shareValue를 토큰의 UsdPrice로 나눈 값을 반환
+    function _valueToAssets(address _assetAddress, uint256 _shareValue) internal view returns(uint256 assetAmount) {
+        return _shareValue / _usdPriceModule.getAssetUsdPrice(_assetAddress);
     }
 
     // shareToken 1개의 가격 정보 반환
@@ -575,8 +574,8 @@ contract Product is ERC20, IProduct {
     }
 
     // share Token 여러개의 가격 정보 반환
-    // vault가 비어있다면 1$ 반환
+    // vault가 비어있다면 1개당 1$로 계산해서 반환
     function shareValue(uint256 shareAmount) public view override returns(uint256) {
-        return totalSupply() > 0 ? (portfolioValue() * shareAmount) / totalSupply() : 10**decimals();
+        return totalSupply() > 0 ? (portfolioValue() * shareAmount) / totalSupply() : shareAmount;
     }
 }
