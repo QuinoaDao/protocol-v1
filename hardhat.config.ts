@@ -1,6 +1,9 @@
+import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
-import * as dotenv from "dotenv";
+
+dotenv.config();
+
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -30,7 +33,7 @@ const config: HardhatUserConfig = {
       chainId: 137, // MATIC FORK
       forking: {
         url: process.env.ALCHEMY_MATIC_URL || "https://polygon-rpc.com/",
-        blockNumber: 35162000,
+        blockNumber: Number(process.env.POLYGON_BLOCK_NUMBER),
       },
       loggingEnabled: true,
     },
