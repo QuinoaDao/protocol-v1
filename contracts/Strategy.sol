@@ -10,7 +10,6 @@ contract Strategy is IStrategy {
     address _underlyingAsset;
     address _dacAddress;
     address _productAddress;
-    bool _isActive;
 
     modifier onlyDac {
         require(msg.sender == _dacAddress, "No permission");
