@@ -8,13 +8,16 @@ import "./ISwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 
-contract Product is ERC20, IProduct {
+contract Product is ERC20, IProduct, AutomationCompatibleInterface {
     using Math for uint256;
 
     AssetParams[] public assets;
     mapping (address => address) public strategies; // asset address => strategy address
     address[] public withdrawalQueue;
+    uint256 lastRebalanced;
+
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
@@ -30,7 +33,8 @@ contract Product is ERC20, IProduct {
 
     UsdPriceModule private _usdPriceModule;
     ISwapModule private _swapModule;
-
+    uint256 private rebalanceInterval;
+ 
     event ActivateProduct(
         address indexed caller,
         uint256 time
@@ -97,6 +101,7 @@ contract Product is ERC20, IProduct {
         
         require((deviationThreshold_ >= 0) || (deviationThreshold_ <= 10000), "Invalid Rebalance Threshold");
         _deviationThreshold = deviationThreshold_;
+        rebalanceInterval = 1 days; 
     }
 
     function currentStrategies() public view override returns(address[] memory) {
@@ -476,7 +481,7 @@ contract Product is ERC20, IProduct {
         return shareAmount;
     }
 
-    function rebalance() external override onlyDac {
+    function rebalance() public override {
         require(isActive, "Product is disabled now");
         
         uint256 curretPortfolioValue = 0;
@@ -515,8 +520,35 @@ contract Product is ERC20, IProduct {
                 require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio), "Deposit into Strategy Failed");
             } 
         }
-        
+        lastRebalanced = block.timestamp;
         emit Rebalance(address(this), assets, block.timestamp);
+    }
+
+    function checkValidAllocation() internal returns(bool) {
+        uint256 curretPortfolioValue = 0;
+        for (uint i = 0; i < assets.length; i++) {
+            assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
+            curretPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
+        }
+        for (uint i=0; i < assets.length; i++) {
+            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
+            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000 || currentBalance < targetBalance*(100000 - _deviationThreshold)/100000) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData) {
+        // check current weights allocated evenly?
+        upkeepNeeded = (!checkValidAllocation() || (lastRebalanced + rebalanceInterval < block.timestamp));
+        return(upkeepNeeded, bytes(""));
+    }
+
+    function performUpkeep(bytes calldata performData) external {
+        // call rebalance
+        rebalance();
     }
 
     // 몇 달러 max로 deposit할 수 있는지 반환
