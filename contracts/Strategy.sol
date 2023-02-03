@@ -24,10 +24,10 @@ contract Strategy is IStrategy {
     constructor (address underlyingAsset_, address productAddress_) {
         _dacAddress = msg.sender;
 
-        require(_underlyingAsset != address(0x0), "Invalid underlying asset address");
+        require(underlyingAsset_ != address(0x0), "Invalid underlying asset address");
         _underlyingAsset = underlyingAsset_;
 
-        require(_productAddress != address(0x0), "Invalid product address");
+        require(productAddress_ != address(0x0), "Invalid product address");
         _productAddress = productAddress_;
     }
 
