@@ -38,7 +38,7 @@ const config: HardhatUserConfig = {
         url: process.env.ALCHEMY_MATIC_URL || "https://polygon-rpc.com/",
         blockNumber: Number(process.env.POLYGON_BLOCK_NUMBER),
       },
-      loggingEnabled: true,
+      loggingEnabled: false,
     },
     matic: {
       url: process.env.MATIC_URL || "https://polygon-rpc.com/",
@@ -46,11 +46,9 @@ const config: HardhatUserConfig = {
         mnemonic: "test test test test test test test test test test test junk",
       },
     },
-    mumbai: {
+    mumbai : {
       url: process.env.MUMBAI_URL || "https://rpc-mumbai.maticvigil.com/",
-      accounts: {
-        mnemonic: "test test test test test test test test test test test junk",
-      },
+      accounts: [process.env.TEST_ACC1 || "" , process.env.TEST_ACC2 || ""]
     },
   },
   gasReporter: {
