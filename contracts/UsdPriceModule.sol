@@ -28,7 +28,7 @@ contract UsdPriceModule is Ownable {
     }
 
     // token 1개 usd price 반환 -> 8 decimals
-    function getLatestPrice(address _asset) public view returns(uint256) {
+    function getLatestPrice(address _asset) internal view returns(uint256) {
         require(priceFeeds[_asset] != address(0), "Unsupported token");
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeeds[_asset]);
         (, int price, , , ) = priceFeed.latestRoundData();
