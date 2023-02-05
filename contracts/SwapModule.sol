@@ -6,6 +6,8 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./ISwapModule.sol";
 
+import "hardhat/console.sol";
+
 contract SwapModule is ISwapModule{
     address public factory;
     IUniswapV2Router02 public immutable router;
@@ -66,7 +68,7 @@ contract SwapModule is ISwapModule{
 
         // set slippate to 0.5%
         uint tokenAmountInMax = amountIn * (1000 + 5) / 1000;
-        uint256[] memory swapedAmounts = router.swapTokensForExactTokens(tokenAmountInMax, amountOut, path, quinoaVault, block.timestamp);
+        uint256[] memory swapedAmounts = router.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, quinoaVault, block.timestamp);
     }
 
     function estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) external override returns (uint256) {
