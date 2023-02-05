@@ -5,7 +5,6 @@ import "hardhat-contract-sizer";
 
 dotenv.config();
 
-
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
@@ -46,10 +45,10 @@ const config: HardhatUserConfig = {
         mnemonic: "test test test test test test test test test test test junk",
       },
     },
-    mumbai : {
-      url: process.env.MUMBAI_URL || "https://rpc-mumbai.maticvigil.com/",
-      accounts: [process.env.TEST_ACC1 || "" , process.env.TEST_ACC2 || ""]
-    },
+    // mumbai : {
+    //   url: process.env.MUMBAI_URL || "https://rpc-mumbai.maticvigil.com/",
+    //   accounts: [process.env.TEST_ACC1 || "" , process.env.TEST_ACC2 || ""]
+    // },
   },
   gasReporter: {
     enabled: true,
