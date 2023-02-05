@@ -11,6 +11,7 @@ import usdcAbi from '../abis/usdcABI.json';
 import wEthAbi from '../abis/wEthABI.json';
 import quickAbi from '../abis/quickABI.json';
 import ghstAbi from '../abis/ghstABI.json';
+import { parseUnits } from "ethers/lib/utils";
 
 const quickSwapFactory = "0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32";
 const quickSwapRouter = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff";
@@ -27,6 +28,9 @@ const wethOracle = "0xF9680D99D6C9589e2a93a78A04A279e509205945";
 const ghstOracle = "0xDD229Ce42f11D8Ee7fFf29bDB71C7b81352e11be";
 const quickOracle = "0xa058689f4bCa95208bba3F265674AE95dED75B6D";
 const usdcOracle = "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7";
+
+const wmatic_usdc = "0x6e7a5FAFcec6BB1e78bAE2A1F0B612012BF14827";
+const wmatic_quick = "0xF3eB2f17eAFBf35e92C965A954c6e7693187057D"
 
 const uniAddress = "0xb33EaAd8d922B1083446DC23f610c2567fB5180f"
 const uniOracle = "0xdf0Fb4e4F928d2dCB76f438575fDD8682386e13C"
@@ -185,23 +189,46 @@ describe('swapModule test',async () => {
         
         console.log("Before wMatic balance", await wMaticContract.balanceOf(dac.address));
         console.log("Before usdc balance", await usdcContract.balanceOf(dac.address));
-        let amountInEstimated = (await swapModule.callStatic.estimateSwapInputAmount(ethers.utils.parseUnits("100", 6), wmaticAddress, usdcAddress)).toString();
+
+        let amountInEstimated = await swapModule.callStatic.estimateSwapInputAmount(ethers.utils.parseUnits("100", 6), wmaticAddress, usdcAddress);
         console.log("Amount in estimated balance: ", amountInEstimated);
-        await wMaticContract.approve(quickSwapRouter, amountInEstimated);
+
+        await wMaticContract.approve(wmatic_usdc, amountInEstimated);
+        console.log("allowance: ", await wMaticContract.allowance(dac.address, quickSwapRouter));
+
         await swapModule.swapExactOutput(ethers.utils.parseUnits("100", 6), wmaticAddress, usdcAddress, dac.address);
         console.log("After wMatic balance", await wMaticContract.balanceOf(dac.address));
         console.log("After usdc balance", await usdcContract.balanceOf(dac.address));
     })
 
-    // it('wmatic - ghst convert',async () => {
-        
-    // })
+    it('wmatic - quick convert',async () => {
+        const {
+            dac, nonDac, 
+            product, wmaticStrategy, 
+            wethStrategy, ghstStrategy, 
+            quickStrategy, usdcStrategy, 
+            usdPriceModule, swapModule, 
+            nonDacStrategy, diffAssetStrategy, dupStrategy
+        } = await deployContracts();
+        await setUsdPriceModule(usdPriceModule);
+        await setProduct(product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        const {wMaticContract, wEthContract, usdcContract, quickContract, ghstContract} = await getTokens(dac);
 
-    // it('wmatic - quick convert',async () => {
+        console.log("wmatic price: ", (await usdPriceModule.getAssetUsdPrice(wmaticAddress)).toString())
+        console.log("quick price: ", (await usdPriceModule.getAssetUsdPrice(quickAddress)).toString())
         
-    // })
+        console.log("Before wMatic balance", await wMaticContract.balanceOf(dac.address));
+        console.log("Before quick balance", await quickContract.balanceOf(dac.address));
 
-    // it('wmatic - weth quick convert',async () => {
-        
-    // })
+        let amountInEstimated = await swapModule.callStatic.estimateSwapInputAmount(ethers.utils.parseUnits("100", 18), wmaticAddress, quickAddress);
+        console.log("Amount in estimated balance: ", amountInEstimated);
+
+        await wMaticContract.approve(wmatic_quick, amountInEstimated);
+        console.log("allowance: ", await wMaticContract.allowance(dac.address, quickSwapRouter));
+
+        await swapModule.swapExactOutput(ethers.utils.parseUnits("1", 18), wmaticAddress, quickAddress, dac.address);
+        console.log("After wMatic balance", await wMaticContract.balanceOf(dac.address));
+        console.log("After quick balance", await quickContract.balanceOf(dac.address));  
+    })
+
 })
