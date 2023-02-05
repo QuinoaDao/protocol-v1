@@ -65,7 +65,7 @@ contract SwapModule is ISwapModule{
         uint amountIn = UniswapV2Library.getAmountIn(amountOut, inputTokenReserve, outputTokenReserve);
 
         // set slippate to 0.5%
-        uint tokenAmountInMax = amountOut * (1000 + 5) / 1000;
+        uint tokenAmountInMax = amountIn * (1000 + 5) / 1000;
         uint256[] memory swapedAmounts = router.swapTokensForExactTokens(tokenAmountInMax, amountOut, path, quinoaVault, block.timestamp);
     }
 
