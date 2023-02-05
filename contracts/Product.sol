@@ -9,6 +9,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
+import "hardhat/console.sol";
+
 contract Product is ERC20, IProduct {
     using Math for uint256;
 
@@ -128,11 +130,13 @@ contract Product is ERC20, IProduct {
     }
 
     function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
+        require(newUsdPriceModule != address(0x0), "Invalid USD price module");
         require(newUsdPriceModule != address(_usdPriceModule), "Duplicated Vaule input");
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
     }
 
     function updateSwapModule(address newSwapModule) external onlyDac {
+        require(newSwapModule != address(0x0), "Invalid swap module");
         require(newSwapModule != address(_swapModule), "Duplicated Vaule input");
         _swapModule = ISwapModule(newSwapModule);
     }
@@ -155,6 +159,7 @@ contract Product is ERC20, IProduct {
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external onlyDac {
+        require(assetAddresses.length == assetWeights.length, "Invalid weight pair");
         uint256 sumOfWeight = 0;
         for (uint i = 0; i < assetAddresses.length; i++) {
             bool found = false;
@@ -206,9 +211,21 @@ contract Product is ERC20, IProduct {
         return _sinceDate;
     }
 
+    function currentUsdPriceModule() public view returns(address) {
+        return address(_usdPriceModule);
+    }
+
+    function currentSwapModule() public view returns(address) {
+        return address(_swapModule);
+    }
+
     ///@notice Returns current target float ratio.
     function currentFloatRatio() public view override returns(uint256) {
         return _floatRatio;
+    }
+
+    function currentDeviationThreshold() public view returns(uint256) {
+        return _deviationThreshold;
     }
 
     ///@notice Check if the asset address is the asset currently being handled in the product.
@@ -544,12 +561,14 @@ contract Product is ERC20, IProduct {
 
     // asset amount 받고, 이에 맞는 share 개수 반환
     function convertToShares(address assetAddress, uint256 assetAmount) public view override returns(uint256 shareAmount) {
+        // assetAddress 존재 안하는거 확인 ?
         uint256 _assetValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
         return _valueToShares(_assetValue);
     }
 
     // share amount 받고, 이에 맞는 asset 개수 반환
     function convertToAssets(address assetAddress, uint256 shareAmount) public view override returns(uint256 assetAmount) {
+        // assetAddress 존재 안하는거 확인 ?
         uint256 _shareValue = shareValue(shareAmount);
         return _valueToAssets(assetAddress, _shareValue);
     }
