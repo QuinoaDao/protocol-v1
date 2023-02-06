@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 import "./IProduct.sol";
 import "./IStrategy.sol";
 import "./UsdPriceModule.sol";
-import "./ISwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -32,7 +31,6 @@ contract Product is ERC20, IProduct, SwapModule {
     uint256 private _sinceDate;
 
     UsdPriceModule private _usdPriceModule;
-    //ISwapModule private _swapModule;
 
     event ActivateProduct(
         address indexed caller,
@@ -139,12 +137,6 @@ contract Product is ERC20, IProduct, SwapModule {
         _usdPriceModule = UsdPriceModule(newUsdPriceModule);
     }
 
-    // function updateSwapModule(address newSwapModule) external onlyDac {
-    //     require(newSwapModule != address(0x0), "Invalid swap module");
-    //     require(newSwapModule != address(_swapModule), "Duplicated Vaule input");
-    //     _swapModule = ISwapModule(newSwapModule);
-    // }
-
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
     function addAsset(address newAssetAddress) external onlyDac {
@@ -218,10 +210,6 @@ contract Product is ERC20, IProduct, SwapModule {
     function currentUsdPriceModule() public view returns(address) {
         return address(_usdPriceModule);
     }
-
-    // function currentSwapModule() public view returns(address) {
-    //     return address(_swapModule);
-    // }
 
     ///@notice Returns current target float ratio.
     function currentFloatRatio() public view override returns(uint256) {
