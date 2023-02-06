@@ -399,7 +399,7 @@ contract Product is ERC20, IProduct, SwapModule {
                 if(floatAmount >= withdrawalAmount) break;
                 
                 // 현재 탐색중인 float에서 확보해야만 하는 float balance가 얼마인지 확인
-                uint256 needAmount = estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress);
+                uint256 needAmount = _estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress);
                 
                 // 현재 탐색중인 float이 내가 확보해야만 하는 float balance보다 큰지, 작은지 비교 
                 // 내가 확보해야하는 float balance가 더 크다면(=현재 탐색중이 float이 부족하다면) 
@@ -408,18 +408,18 @@ contract Product is ERC20, IProduct, SwapModule {
                     needAmount =  _assetBalanceOf(floatAssetAddress, address(this));
 
                     // 해당 float에서 확보할 수 있는 자산이 하나도 없는 경우 pass
-                    if(estimateSwapOutputAmount(needAmount, floatAssetAddress, assetAddress) == 0) continue;
+                    if(_estimateSwapOutputAmount(needAmount, floatAssetAddress, assetAddress) == 0) continue;
 
                     // IERC20(floatAssetAddress).approve(getPairAddress(floatAssetAddress, assetAddress), needAmount);
                     IERC20(floatAssetAddress).approve(address(router), needAmount);
-                    swapExactInput(needAmount, floatAssetAddress, assetAddress, address(this));
+                    _swapExactInput(needAmount, floatAssetAddress, assetAddress, address(this));
                 }
                 // 내가 확보해야하는 float balance가 더 작다면(=현재 탐색중인 float이 충분히 많은 경우) 
                 // -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
                 else {
                     //IERC20(floatAssetAddress).approve(getPairAddress(assets[i].assetAddress, assetAddress), needAmount);
                     IERC20(floatAssetAddress).approve(address(router), needAmount);
-                    swapExactOutput(withdrawalAmount - floatAmount, assets[i].assetAddress, assetAddress, address(this));
+                    _swapExactOutput(withdrawalAmount - floatAmount, assets[i].assetAddress, assetAddress, address(this));
                 }
             }
 
@@ -447,7 +447,7 @@ contract Product is ERC20, IProduct, SwapModule {
                 }
                 else { // 다른 경우
                     // 현재 탐색중인 float에서 확보해야만 하는 float balance가 얼마인지 확인
-                    uint256 needAmount = estimateSwapInputAmount(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress);
+                    uint256 needAmount = _estimateSwapInputAmount(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress);
                     
                     // 현재 탐색중인 float이 내가 확보해야만 하는 float balance보다 큰지, 작은지 비교 
                     // 크다면 -> 현재 존재하는 float 전부를 withdraw 가능하도록 유저가 원하는 token으로 스왑 -> 일부분의 자금을 확보
@@ -455,17 +455,17 @@ contract Product is ERC20, IProduct, SwapModule {
                         needAmount =  IStrategy(withdrawalQueue[i]).totalAssets();
 
                         // 해당 float에서 확보할 수 있는 자산이 하나도 없는 경우 pass
-                        if(estimateSwapOutputAmount(needAmount, strategyAssetAddress, assetAddress) == 0) continue;
+                        if(_estimateSwapOutputAmount(needAmount, strategyAssetAddress, assetAddress) == 0) continue;
 
                         //IERC20(strategyAssetAddress).approve(getPairAddress(strategyAssetAddress, assetAddress), needAmount);
                         IERC20(strategyAssetAddress).approve(address(router), needAmount);
-                        swapExactInput(needAmount, strategyAssetAddress, assetAddress, address(this));
+                        _swapExactInput(needAmount, strategyAssetAddress, assetAddress, address(this));
                     }
                     // 작다면 -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
                     else {
                         //IERC20(strategyAssetAddress).approve((getPairAddress(strategyAssetAddress, assetAddress), needAmount);
                         IERC20(strategyAssetAddress).approve(address(router), needAmount);
-                        swapExactOutput(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress, address(this));
+                        _swapExactOutput(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress, address(this));
                     }
                 }
             }
@@ -508,7 +508,7 @@ contract Product is ERC20, IProduct, SwapModule {
             
                 //IERC20(assets[i].assetAddress).approve(getPairAddress(), sellAmount);
                 IERC20(assets[i].assetAddress).approve(address(router), sellAmount);
-                swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
+                _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
         }
 
@@ -520,10 +520,10 @@ contract Product is ERC20, IProduct, SwapModule {
             if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
                 uint256 buyAmount = targetBalance - currentBalance;
 
-                uint256 amountInEstimated = estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
+                uint256 amountInEstimated = _estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
                 //IERC20(_underlyingAssetAddress).approve(_swapModule.getRouterAddress(), amountInEstimated);
                 IERC20(_underlyingAssetAddress).approve(address(router), amountInEstimated);
-                swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
+                _swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
             if(newFloatBalance > targetBalance*_floatRatio){

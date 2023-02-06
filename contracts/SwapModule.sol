@@ -13,28 +13,19 @@ contract SwapModule {
     address public factory;
     IUniswapV2Router02 public router;
 
-    // constructor(address factory_, address router_) public {
-    //     factory = factory_;
-    //     router = IUniswapV2Router02(router_);
-    // }
-
-    function getPair(address tokenA, address tokenB) public view returns (IUniswapV2Pair) {
+    function _getPair(address tokenA, address tokenB) internal view returns (IUniswapV2Pair) {
         IUniswapV2Pair pair = IUniswapV2Pair(UniswapV2Library.pairFor(factory, tokenA, tokenB));
         return pair;
     }
 
-    function getPairAddress(address tokenA, address tokenB) public view returns (address) {
+    function _getPairAddress(address tokenA, address tokenB) internal view returns (address) {
         IUniswapV2Factory factory_ = IUniswapV2Factory(factory);
         address pair = factory_.getPair(tokenA, tokenB);
         return pair;
     }
 
-    // function getRouterAddress() internal override returns (address) {
-    //     return address(router);
-    // }
-
-    function swapExactInput(uint256 amountIn, address inputToken, address outputToken, address quinoaVault) public {
-        IUniswapV2Pair pair = getPair(inputToken, outputToken);
+    function _swapExactInput(uint256 amountIn, address inputToken, address outputToken, address quinoaVault) internal {
+        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
@@ -49,8 +40,8 @@ contract SwapModule {
         router.swapExactTokensForTokens(amountIn, tokenAmountOutMin, path, quinoaVault, block.timestamp);
     }
 
-    function estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) public view returns (uint256) {
-        IUniswapV2Pair pair = getPair(inputToken, outputToken);
+    function _estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) internal view returns (uint256) {
+        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
@@ -62,8 +53,8 @@ contract SwapModule {
         return amountOut;
     }
 
-    function swapExactOutput(uint256 amountOut, address inputToken, address outputToken, address quinoaVault) public {
-        IUniswapV2Pair pair = getPair(inputToken, outputToken);
+    function _swapExactOutput(uint256 amountOut, address inputToken, address outputToken, address quinoaVault) internal {
+        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
@@ -78,8 +69,8 @@ contract SwapModule {
         router.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, quinoaVault, block.timestamp);
     }
 
-    function estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) public view returns (uint256) {
-        IUniswapV2Pair pair = getPair(inputToken, outputToken);
+    function _estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) internal view returns (uint256) {
+        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
