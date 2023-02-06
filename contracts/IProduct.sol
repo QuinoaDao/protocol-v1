@@ -64,13 +64,13 @@ interface IProduct is IERC20, IERC20Metadata {
 
     function rebalance() external;
 
-    function maxDepositValue(address receiver) external returns(uint256);
-    function maxWithdrawValue(address owner) external returns (uint256);
+    function maxDepositValue(address receiver) external view returns(uint256);
+    function maxWithdrawValue(address owner) external view returns (uint256);
 
-    function convertToShares(address assetAddress, uint256 assetAmount) external returns(uint256 shareAmount);
-    function convertToAssets(address assetAddress, uint256 shareAmount) external returns(uint256 assetAmount);
+    function convertToShares(address assetAddress, uint256 assetAmount) external view returns(uint256 shareAmount);
+    function convertToAssets(address assetAddress, uint256 shareAmount) external view returns(uint256 assetAmount);
 
-    function sharePrice() external returns(uint256);
-    function shareValue(uint256 shareAmount) external returns(uint256);
+    function sharePrice() external view returns(uint256);
+    function shareValue(uint256 shareAmount) external view returns(uint256);
 
 }
