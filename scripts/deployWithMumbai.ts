@@ -19,12 +19,8 @@ async function deployContracts() {
     const Product = await ethers.getContractFactory("Product");
     const Strategy = await ethers.getContractFactory("Strategy");
     const UsdPriceModule = await ethers.getContractFactory("UsdPriceModule");
-    const SwapModule = await ethers.getContractFactory("SwapModule");
-
     const [dac, nonDac] = await ethers.getSigners();
 
-    const swapModule = await SwapModule.deploy(quickSwapFactory, quickSwapRouter);
-    await swapModule.deployed();
     const usdPriceModule = await UsdPriceModule.deploy();
     await usdPriceModule.deployed();
 
@@ -34,12 +30,13 @@ async function deployContracts() {
     // address dacAddress_, 
     // string memory dacName_, 
     // address usdPriceModule_,
-    // address swapModule_,
     // address underlyingAssetAddress_,
     // address[] memory assetAddresses_, 
-    // uint256 floatRatio_, 
-    // uint256 deviationThreshold_ 
-    const product = await Product.deploy("Quinoa test Product", "qTEST", dac.address, "Quinoa DAC", usdPriceModule.address, swapModule.address, usdcAddress, [wmaticAddress, wethAddress, linkAddress], 20000, 5000);
+    // uint256 floatRatio_,
+    // uint256 deviationThreshold_,
+    // address swapFactory_,
+    // address swapRouter_
+    const product = await Product.deploy("Quinoa test Product", "qTEST", dac.address, "Quinoa DAC", usdPriceModule.address, usdcAddress, [wmaticAddress, wethAddress, linkAddress], 20000, 5000, quickSwapFactory, quickSwapRouter);
     await product.deployed();
 
     const wmaticStrategy = await Strategy.deploy(wmaticAddress, product.address);
@@ -55,7 +52,7 @@ async function deployContracts() {
       dac, nonDac, 
       product, 
       wmaticStrategy, wethStrategy, linkStrategy, usdcStrategy, 
-      usdPriceModule, swapModule
+      usdPriceModule
     };
 }
 
@@ -81,7 +78,7 @@ async function setUsdPriceModule(usdPriceModule: UsdPriceModule) {
 }
 
 async function main(){
-    const {dac, nonDac, product, wmaticStrategy, wethStrategy, linkStrategy, usdcStrategy, usdPriceModule, swapModule} = await deployContracts();
+    const {dac, nonDac, product, wmaticStrategy, wethStrategy, linkStrategy, usdcStrategy, usdPriceModule} = await deployContracts();
     await setUsdPriceModule(usdPriceModule);
     await setProduct(product, linkStrategy, wmaticStrategy, wethStrategy, usdcStrategy);
 
@@ -91,7 +88,6 @@ async function main(){
     console.log('Link Strategy address', linkStrategy.address);
     console.log('USDC Strategy address', usdcStrategy.address);
     console.log('USD Price Module address', usdPriceModule.address);
-    console.log('Swap Module address', swapModule.address);
     console.log('Dac address', dac.address);
 }
 
