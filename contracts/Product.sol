@@ -304,23 +304,24 @@ contract Product is ERC20, IProduct, SwapModule {
     }
 
     function activateProduct() external onlyDac {
-        require(!isActive);
+        require(!isActive, "Already activate product");
         
-        require(assets.length != 0);
-        require(withdrawalQueue.length != 0);
+        require(assets.length != 0, "No assets");
 
         uint sumOfWeights = 0;
         for(uint i=0; i<assets.length; i++) {
             sumOfWeights += assets[i].targetWeight;
             if(assets[i].targetWeight > 0) {
-                require(strategies[assets[i].assetAddress] != address(0));
+                require(strategies[assets[i].assetAddress] != address(0), "No strategies");
             }
         }
-        require(sumOfWeights == 100000);
+        require(sumOfWeights == 100000, "Sum of target weights is not 100%");
+
+        require(withdrawalQueue.length != 0, "No withdrawal Queue");
 
         // dac이 일정 금액 이상 deposit하고 있어야 함
         // 1인당 50달러 * 4명
-        require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18));
+        require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18), "Dac's deposit balance is too lower");
 
         isActive = true;
 
@@ -328,7 +329,7 @@ contract Product is ERC20, IProduct, SwapModule {
     }
 
     function deactivateProduct() external onlyDac {
-        require(isActive);
+        require(isActive, "Already deactivate product");
 
         isActive = false;
 
@@ -355,13 +356,16 @@ contract Product is ERC20, IProduct, SwapModule {
         // deposit 양 maxDeposit이랑 비교 -> 50(55)달러가 상한선
         // max deposit 계산 후 require
         uint256 depositValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
+        console.log("deposit Value: ", depositValue);
         require(depositValue < maxDepositValue(_msgSender()), "Too much deposit");
 
         // dollar 기준 가격으로 share 양 계산하기
         uint256 shareAmount = _valueToShares(depositValue);
         require(shareAmount > 0, "short of deposit");
 
-        SafeERC20.safeTransfer(IERC20(assetAddress), address(this), assetAmount); // token, to, value
+        SafeERC20.safeTransferFrom(IERC20(assetAddress), _msgSender(), address(this), assetAmount);
+        // SafeERC20.safeTransfer(IERC20(assetAddress), address(this), assetAmount); // token, to, value
+        // IERC20(assetAddress).transfer(address(this), assetAmount);
         _mint(receiver, shareAmount);
 
         emit Deposit(_msgSender(), receiver, assetAmount, shareAmount);
@@ -374,19 +378,24 @@ contract Product is ERC20, IProduct, SwapModule {
 
         // share값이 max인지 확인
         if(shareAmount == type(uint256).max) {
+            console.log("in here!!");
             shareAmount = balanceOf(owner);
         }
 
         // share Amount에 대한 유효성 검사 진행
         require(shareAmount <= balanceOf(owner), "Too much withdrawal");
+        console.log("share amount balance require passed");
 
         // 필요한 value가 얼만큼인지, asset으로 따지면 얼만큼이 되는지 확인
         uint256 withdrawalAmount = _valueToAssets(assetAddress, shareValue(shareAmount));
         require(withdrawalAmount > 0, "short of withdrawal");
-
+        console.log("asset address - withdrawal Amount: ", withdrawalAmount);
+        
         // 해당 withdrawalAmount를 asset의 float과 비교
         // asset의 float보다 withdrawalAmount가 크다면, 우선 float을 순회하고, 이후 withdrawal queue를 순회하는 로직이 필요
         if (_assetBalanceOf(assetAddress, address(this)) < withdrawalAmount) { // withdraw 해야 할 amount가 더 많은 상황 (1차 필터링)
+            console.log("filtering 1 not passed");
+            
             // 1차 float 확보 과정 - float을 돌면서 asset float 확보 
             for (uint i=0; i<assets.length; i++){
                 // 만약, 현재 asset 주소랑 assets의 주소가 같으면 pass
@@ -581,8 +590,11 @@ contract Product is ERC20, IProduct, SwapModule {
     // share의 dollar 양 받고, asset의 개수 반환
     // 수식 : withdraw share value / asset Price
     // vault가 비어있어도 share가 존재한다는 가정 하에 _shareValue가 들어온 것이므로 shareValue를 토큰의 UsdPrice로 나눈 값을 반환
+    // 걱정이네욥 
+    // 1. usdc decimal을 전혀 고려 못하고 있음
+    // 2. 무조건 decimal 18로 고정해서 넘겨줌
     function _valueToAssets(address _assetAddress, uint256 _shareValue) internal view returns(uint256 assetAmount) {
-        return _shareValue / _usdPriceModule.getAssetUsdPrice(_assetAddress);
+        return (_shareValue * 1e18) / _usdPriceModule.getAssetUsdPrice(_assetAddress);
     }
 
     // shareToken 1개의 가격 정보 반환
