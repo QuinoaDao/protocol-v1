@@ -29,6 +29,7 @@ contract Product is ERC20, IProduct, AutomationCompatibleInterface {
 
     string private _dacName; 
     address private _dacAddress;
+    address private _keeperRegistry;
     uint256 private _sinceDate;
 
     UsdPriceModule private _usdPriceModule;
@@ -63,6 +64,7 @@ contract Product is ERC20, IProduct, AutomationCompatibleInterface {
         string memory symbol_, 
         address dacAddress_, 
         string memory dacName_, 
+        address keeperRegistry_,
         address usdPriceModule_,
         address swapModule_,
         address underlyingAssetAddress_,
@@ -87,6 +89,8 @@ contract Product is ERC20, IProduct, AutomationCompatibleInterface {
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
         _swapModule = ISwapModule(swapModule_);
+        require(keeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
+        _keeperRegistry = keeperRegistry_;
 
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
@@ -175,6 +179,12 @@ contract Product is ERC20, IProduct, AutomationCompatibleInterface {
             require(found, "Asset not found");
         }
         require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
+    }
+
+    function updateKeeperRegistryAddress(address newKeeperRegistry_) external onlyDac {
+        require(newKeeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
+        require(newKeeperRegistry_ != _keeperRegistry, "Duplicated Address input");
+        _keeperRegistry = newKeeperRegistry_;
     }
 
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
@@ -482,6 +492,7 @@ contract Product is ERC20, IProduct, AutomationCompatibleInterface {
     }
 
     function rebalance() public override {
+        require(_msgSender() == _dacAddress || _msgSender() == _keeperRegistry, "Access Not allowed");
         require(isActive, "Product is disabled now");
         
         uint256 curretPortfolioValue = 0;
