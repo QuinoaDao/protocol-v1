@@ -40,9 +40,15 @@ contract SwapModule {
         router.swapExactTokensForTokens(amountIn, tokenAmountOutMin, path, quinoaVault, block.timestamp);
     }
 
-    function _estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) internal view returns (uint256) {
+    function _estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) public view returns (uint256) { 
+
+        if(amountIn == 0){
+            return 0;
+        }
+
         IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
+
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
         address[] memory path = new address[](2);
@@ -50,10 +56,12 @@ contract SwapModule {
         path[1] = outputToken;
 
         uint amountOut = UniswapV2Library.getAmountOut(amountIn, inputTokenReserve, outputTokenReserve);
+        console.log("getAmountOut....", amountOut);
         return amountOut;
     }
 
     function _swapExactOutput(uint256 amountOut, address inputToken, address outputToken, address quinoaVault) internal {
+        console.log("swap exactOutPut! ", amountOut);
         IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
@@ -67,9 +75,15 @@ contract SwapModule {
         // set slippate to 0.5%
         uint tokenAmountInMax = amountIn * (1000 + 5) / 1000;
         router.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, quinoaVault, block.timestamp);
+        console.log("swap success!!");
     }
 
-    function _estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) internal view returns (uint256) {
+    function _estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) public view returns (uint256) {
+
+        if(amountOut == 0){
+            return 0;
+        }
+
         IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
