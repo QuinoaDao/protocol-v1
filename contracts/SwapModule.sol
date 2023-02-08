@@ -56,12 +56,10 @@ contract SwapModule {
         path[1] = outputToken;
 
         uint amountOut = UniswapV2Library.getAmountOut(amountIn, inputTokenReserve, outputTokenReserve);
-        console.log("getAmountOut....", amountOut);
         return amountOut;
     }
 
     function _swapExactOutput(uint256 amountOut, address inputToken, address outputToken, address quinoaVault) internal {
-        console.log("swap exactOutPut! ", amountOut);
         IUniswapV2Pair pair = _getPair(inputToken, outputToken);
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
@@ -75,7 +73,6 @@ contract SwapModule {
         // set slippate to 0.5%
         uint tokenAmountInMax = amountIn * (1000 + 5) / 1000;
         router.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, quinoaVault, block.timestamp);
-        console.log("swap success!!");
     }
 
     function _estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) public view returns (uint256) {
