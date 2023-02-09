@@ -594,7 +594,7 @@ contract Product is ERC20, IProduct, SwapModule {
     // 1. usdc decimal을 전혀 고려 못하고 있음
     // 2. 무조건 decimal 18로 고정해서 넘겨줌
     function _valueToAssets(address _assetAddress, uint256 _shareValue) internal view returns(uint256 assetAmount) {
-        return (_shareValue * 1e18) / _usdPriceModule.getAssetUsdPrice(_assetAddress);
+        return _usdPriceModule.convertAssetBalance(_assetAddress, _shareValue);
     }
 
     // shareToken 1개의 가격 정보 반환
