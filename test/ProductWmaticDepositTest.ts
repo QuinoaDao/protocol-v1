@@ -23,16 +23,12 @@ const wethAddress = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
 const ghstAddress = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
 const quickAddress = "0xB5C064F955D8e7F38fE0460C556a72987494eE17";
 const usdcAddress = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
-const usdcProxyAddress = "0xDD9185DB084f5C4fFf3b4f70E7bA62123b812226";
 
 const wmaticOracle = "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0";
 const wethOracle = "0xF9680D99D6C9589e2a93a78A04A279e509205945";
 const ghstOracle = "0xDD229Ce42f11D8Ee7fFf29bDB71C7b81352e11be";
 const quickOracle = "0xa058689f4bCa95208bba3F265674AE95dED75B6D";
 const usdcOracle = "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7";
-
-const wmatic_usdc = "0x6e7a5FAFcec6BB1e78bAE2A1F0B612012BF14827";
-const wmatic_quick = "0xF3eB2f17eAFBf35e92C965A954c6e7693187057D";
 
 const uniAddress = "0xb33EaAd8d922B1083446DC23f610c2567fB5180f";
 const uniOracle = "0xdf0Fb4e4F928d2dCB76f438575fDD8682386e13C";
@@ -151,7 +147,7 @@ async function setProduct(
 async function getTokens(dac: SignerWithAddress, nonDac: SignerWithAddress) {
   const wMaticContract = new ethers.Contract(wmaticAddress, wMaticAbi, dac);
   const wEthContract = new ethers.Contract(wethAddress, wEthAbi, dac);
-  const usdcContract = new ethers.Contract(usdcProxyAddress, usdcAbi, dac);
+  const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, dac);
   const quickContract = new ethers.Contract(quickAddress, quickAbi, dac);
   const ghstContract = new ethers.Contract(ghstAddress, ghstAbi, dac);
 
@@ -186,6 +182,7 @@ async function activateProduct(dac: SignerWithAddress, product: Product, wMaticC
   await product.activateProduct();
 }
 
+
 describe('matic - wmatic test',async () => {
     it('matic - wmatic convert',async () => {
         const {
@@ -209,6 +206,7 @@ describe('matic - wmatic test',async () => {
         expect((await wMaticContract.balanceOf(dac.address)).toString()).equal((ethers.utils.parseEther("1000")).toString());
     })
 })
+
 
 describe('activation test',async () => {
    // 이때, activateProduct -> onlyDac check, 설정이 다 안되어 있을 때 activate 안되는거 확인
@@ -302,6 +300,7 @@ describe('activation test',async () => {
   })
 
 })
+
 
 describe('Basic deposit test',async () => {
 
@@ -489,7 +488,91 @@ describe('Basic deposit test',async () => {
     expect(await product.convertToAssets(wmaticAddress, await product.totalSupply())).equal(parseEther("200"));
   })
 })
+ 
 
+describe('decimal 18 in-out',async () => {
+  it('wmatic in - weth out',async () => {
+    const {
+      dac, nonDac,
+      product, wmaticStrategy, 
+      wethStrategy, ghstStrategy, 
+      quickStrategy, usdcStrategy, 
+      usdPriceModule
+    } = await deployContracts();
+    await setUsdPriceModule(usdPriceModule);
+    await setProduct(product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    const {wMaticContract, wEthContract} =await getTokens(dac, nonDac);
+    await activateProduct(dac, product, wMaticContract);
+
+    // wmatic으로 30 token deposit
+    await wMaticContract.connect(nonDac).approve(product.address, ethers.utils.parseEther("100"));
+    await product.connect(nonDac).deposit(wmaticAddress, ethers.utils.parseEther("30"), nonDac.address) // wmatic deposit
+
+    console.log("wmatic 30개 value: ", await usdPriceModule.getAssetUsdValue(wmaticAddress, parseEther("30")));
+    console.log("유저의 share token 개수: ", await product.balanceOf(nonDac.address));
+    console.log("product의 total supply: ", await product.totalSupply());
+    console.log("product의 wmatic balance: ", await wMaticContract.balanceOf(product.address));
+    console.log("value -> wmatic asset amouont: ", await product.convertToAssets(wmaticAddress, await product.balanceOf(nonDac.address)));
+    console.log("value -> weth asset amouont: ", await product.convertToAssets(wethAddress, await product.balanceOf(nonDac.address)));
+
+    // weth로 전부 withdraw
+    await product.connect(nonDac).withdraw(wethAddress, ethers.constants.MaxUint256, nonDac.address, nonDac.address);
+    console.log("nonDac withdraw value: ", await usdPriceModule.getAssetUsdValue(wethAddress, await wEthContract.balanceOf(nonDac.address)));
+    console.log("유저의 share token 개수: ", await product.balanceOf(nonDac.address));
+    console.log("product의 total supply: ", await product.totalSupply());
+    console.log("product의 wmatic balance: ", await wMaticContract.balanceOf(product.address));
+    console.log("유저의 weth 개수: ", await wEthContract.balanceOf(nonDac.address));
+    
+    await product.deactivateProduct();
+    await product.withdraw(wmaticAddress, ethers.constants.MaxUint256, dac.address, dac.address);
+    console.log("product의 total supply: ", await product.totalSupply());
+    console.log("product의 wmatic balance: ", await wMaticContract.balanceOf(product.address));
+    console.log("dac의 wmatic 개수: ", await wMaticContract.balanceOf(dac.address));
+  })
+})
+
+describe('wmatic in - quick out',async () => {
+  it('wmatic in - quick out',async () => {
+    const {
+      dac, nonDac,
+      product, wmaticStrategy, 
+      wethStrategy, ghstStrategy, 
+      quickStrategy, usdcStrategy, 
+      usdPriceModule
+    } = await deployContracts();
+    await setUsdPriceModule(usdPriceModule);
+    await setProduct(product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    const {wMaticContract, quickContract} =await getTokens(dac, nonDac);
+    await activateProduct(dac, product, wMaticContract);
+
+    // wmatic으로 30 token deposit
+    await wMaticContract.connect(nonDac).approve(product.address, ethers.utils.parseEther("100"));
+    await product.connect(nonDac).deposit(wmaticAddress, ethers.utils.parseEther("30"), nonDac.address) // wmatic deposit
+
+    console.log("wmatic 30개 value: ", await usdPriceModule.getAssetUsdValue(wmaticAddress, parseEther("30")));
+    console.log("유저의 share token 개수: ", await product.balanceOf(nonDac.address));
+    console.log("product의 total supply: ", await product.totalSupply());
+    console.log("product의 wmatic balance: ", await wMaticContract.balanceOf(product.address));
+    console.log("value -> wmatic asset amouont: ", await product.convertToAssets(wmaticAddress, await product.balanceOf(nonDac.address)));
+    console.log("value -> quick asset amouont: ", await product.convertToAssets(quickAddress, await product.balanceOf(nonDac.address)));
+
+    // quick으로 전부 withdraw
+    await product.connect(nonDac).withdraw(quickAddress, ethers.constants.MaxUint256, nonDac.address, nonDac.address);
+    console.log("nonDac withdraw value: ", await usdPriceModule.getAssetUsdValue(quickAddress, await quickContract.balanceOf(nonDac.address)));
+    console.log("유저의 share token 개수: ", await product.balanceOf(nonDac.address));
+    console.log("product의 total supply: ", await product.totalSupply());
+    console.log("product의 wmatic balance: ", await wMaticContract.balanceOf(product.address));
+    console.log("유저의 quick 개수: ", await quickContract.balanceOf(nonDac.address));
+    
+    await product.deactivateProduct();
+    await product.withdraw(wmaticAddress, ethers.constants.MaxUint256, dac.address, dac.address);
+    console.log("product의 total supply: ", await product.totalSupply());
+    console.log("product의 wmatic balance: ", await wMaticContract.balanceOf(product.address));
+    console.log("dac의 wmatic 개수: ", await wMaticContract.balanceOf(dac.address));
+  })
+})
+
+// test fail
 describe('wmatic in - usdc out',async () => {
   it('wmatic in - usdc out',async () => {
     const {
@@ -507,17 +590,27 @@ describe('wmatic in - usdc out',async () => {
     // wmatic으로 30 token deposit
     await wMaticContract.connect(nonDac).approve(product.address, ethers.utils.parseEther("100"));
     await product.connect(nonDac).deposit(wmaticAddress, ethers.utils.parseEther("30"), nonDac.address)
+    let beforePortfolio = await product.portfolioValue();
+    let beforeProductWmatic = await product.assetBalance(wmaticAddress);
+    console.log("user's deposit value: ", await usdPriceModule.getAssetUsdValue(wmaticAddress, parseEther("30")));
+    console.log("product's total portfolio value: ", beforePortfolio);
+    console.log("product's wmatic balance: ", beforeProductWmatic);
 
-    console.log("before usdc withdraw - usdc balance: ", await usdcContract.balanceOf(nonDac.address));
-    console.log("before usdc withdraw - product balance: ", await wMaticContract.balanceOf(product.address));
     // usdc로 전부 withdraw
-    let shareTokenBalance = await product.balanceOf(nonDac.address);
-    console.log("before usdc withdraw - share balance: ", shareTokenBalance);
     await product.connect(nonDac).withdraw(usdcAddress, ethers.constants.MaxUint256, nonDac.address, nonDac.address);
+    let afterPortfolio =  await product.portfolioValue();
+    let afterProductWmatic = await product.assetBalance(wmaticAddress);
+    let userWithdrawalValue = await usdPriceModule.getAssetUsdValue(usdcAddress, await usdcContract.balanceOf(nonDac.address));
+    console.log("user's withdraw value: ", userWithdrawalValue);
+    console.log("product's total portfolio value: ",afterPortfolio);
+    console.log("product's wmatic balance: ",afterProductWmatic);
+
+    console.log("------------------------------------------------------------------")
+   
+    console.log("product portfolio before - after: ", beforePortfolio.sub(afterPortfolio));
+    console.log("wmatic balance before - after: ", beforeProductWmatic.sub(afterProductWmatic));
+    console.log("before portfolio - after portfolio vs withdraw value: ", beforePortfolio.sub(afterPortfolio).add(userWithdrawalValue));
     
-    console.log("after usdc withdraw - usdc balance: ", await usdcContract.balanceOf(nonDac));
-    console.log("must be... ", await product.convertToAssets(usdcAddress, shareTokenBalance));
     // 이후 product 상황 살펴가면서 fee가 어느정도 소비된것인지 확인하기
   })
 })
-
