@@ -254,7 +254,7 @@ describe("rebalance test",async () => {
         expect(productDepositGhstBalance.toString()).equal("0");
 
         // rebalance 진행
-        product.rebalance();
+        await product.rebalance();
 
         let productRebalanceShareBalance = await product.totalSupply();
         let productRebalancePortfolioValue = await product.portfolioValue();
