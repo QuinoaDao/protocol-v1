@@ -515,8 +515,9 @@ contract Product is ERC20, IProduct, SwapModule {
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                require(_redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
-            
+                if(IStrategy(strategies[assets[i].assetAddress]).totalAssets() > sellAmount) {
+                    require(_redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
+                }
                 //IERC20(assets[i].assetAddress).approve(getPairAddress(), sellAmount);
                 IERC20(assets[i].assetAddress).approve(address(router), sellAmount);
                 _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
