@@ -21,8 +21,8 @@ contract Strategy is IStrategy {
         _;
     }
 
-    constructor (address underlyingAsset_, address productAddress_) {
-        _dacAddress = msg.sender;
+    constructor (address dacAddress_, address underlyingAsset_, address productAddress_) {
+        _dacAddress = dacAddress_;
 
         require(underlyingAsset_ != address(0x0), "Invalid underlying asset address");
         _underlyingAsset = underlyingAsset_;
