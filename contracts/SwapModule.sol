@@ -7,8 +7,6 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "./ISwapModule.sol";
 
-import "hardhat/console.sol";
-
 contract SwapModule {
     address public factory;
     IUniswapV2Router02 public router;
