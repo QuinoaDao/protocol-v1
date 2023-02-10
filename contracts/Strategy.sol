@@ -2,6 +2,7 @@
 pragma solidity ^0.8.10;
 
 import "./IStrategy.sol";
+import "./IProduct.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -31,8 +32,16 @@ contract Strategy is IStrategy {
         _productAddress = productAddress_;
     }
 
-    function dacAddress() external view override returns(address) {
+    function dacAddress() public view override returns(address) {
         return _dacAddress;
+    }
+
+    function underlyingAsset() external view override returns(address) {
+        return _underlyingAsset;
+    }
+
+    function totalAssets() public view override returns(uint256) {
+        return IERC20(_underlyingAsset).balanceOf(address(this));
     }
 
     function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) {
@@ -41,11 +50,10 @@ contract Strategy is IStrategy {
         return true;
     }
 
-    function totalAssets() external view override returns(uint256) {
-        return IERC20(_underlyingAsset).balanceOf(address(this));
-    }
-
-    function underlyingAsset() external view override returns(address) {
-        return _underlyingAsset;
+    function withdrawAllToProduct() external onlyDac returns(bool) {
+        // product가 deactivate 상태에서만 호출 가능
+        require(!IProduct(_productAddress).checkActivation(), "Product is active now");
+        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, totalAssets());
+        return true;
     }
 }
