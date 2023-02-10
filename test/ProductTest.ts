@@ -5,6 +5,7 @@ import { ethers } from "hardhat";
 import { Product, Strategy, UsdPriceModule } from "../typechain-types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber } from "ethers";
+import { parseEther, parseUnits } from "ethers/lib/utils";
 
 const quickSwapFactory = "0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32";
 const quickSwapRouter = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff";
@@ -50,25 +51,25 @@ async function deployContracts() {
     const product = await Product.deploy("Quinoa test Product", "qTEST", dac.address, "Quinoa DAC", usdPriceModule.address, usdcAddress, [wmaticAddress, wethAddress], 20000, 5000, quickSwapFactory, quickSwapRouter);
     await product.deployed();
 
-    const wmaticStrategy = await Strategy.deploy(wmaticAddress, product.address);
+    const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
     await wmaticStrategy.deployed();
-    const wethStrategy = await Strategy.deploy(wethAddress, product.address);
+    const wethStrategy = await Strategy.deploy(dac.address, wethAddress, product.address);
     await wethStrategy.deployed();
-    const ghstStrategy = await Strategy.deploy(ghstAddress, product.address);
+    const ghstStrategy = await Strategy.deploy(dac.address, ghstAddress, product.address);
     await ghstStrategy.deployed();
-    const quickStrategy = await Strategy.deploy(quickAddress, product.address);await usdPriceModule.deployed();
+    const quickStrategy = await Strategy.deploy(dac.address, quickAddress, product.address);await usdPriceModule.deployed();
     await quickStrategy.deployed();
-    const usdcStrategy = await Strategy.deploy(usdcAddress, product.address);
+    const usdcStrategy = await Strategy.deploy(dac.address, usdcAddress, product.address);
     await usdcStrategy.deployed();
 
     // non dac member depoly bad strategy 1
-    const nonDacStrategy = await Strategy.connect(nonDac).deploy(wmaticAddress, product.address);
+    const nonDacStrategy = await Strategy.connect(nonDac).deploy(nonDac.address, wmaticAddress, product.address);
     await nonDacStrategy.deployed();
     // bad strategy 2 uses uni token that product doesn't use
-    const diffAssetStrategy = await Strategy.deploy(uniAddress, product.address);
+    const diffAssetStrategy = await Strategy.deploy(dac.address, uniAddress, product.address);
     await diffAssetStrategy.deployed();
     // bad strategy 3 is duplicated strategy with wmaticStrategy
-    const dupStrategy = await Strategy.deploy(wmaticAddress, product.address)
+    const dupStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address)
     await dupStrategy.deployed();
 
     return {
@@ -491,11 +492,11 @@ describe('Product balance/price functions test', () => {
     await setUsdPriceModule(usdPriceModule);
     await setProduct(product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
-    let wmaticPrice = (await usdPriceModule.getAssetUsdPrice(wmaticAddress)).toString();
-    let usdcPrice = (await usdPriceModule.getAssetUsdPrice(usdcAddress)).toString();
+    let wmaticPrice = (await usdPriceModule.getAssetUsdPrice(wmaticAddress));
+    let usdcPrice = (await usdPriceModule.getAssetUsdPrice(usdcAddress));
 
-    expect(((await product.convertToAssets(wmaticAddress, wmaticPrice + '00')).toString())).equal('100');
-    expect(((await product.convertToAssets(usdcAddress, usdcPrice + '0000')).toString())).equal('10000');
+    expect(((await product.convertToAssets(wmaticAddress, wmaticPrice.mul(100))).toString())).equal(parseEther("100"));
+    expect(((await product.convertToAssets(usdcAddress, usdcPrice.mul(1000))).toString())).equal(parseUnits("1000", 6));
 
   })
 

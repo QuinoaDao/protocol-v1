@@ -39,13 +39,13 @@ async function deployContracts() {
     const product = await Product.deploy("Quinoa test Product", "qTEST", dac.address, "Quinoa DAC", usdPriceModule.address, usdcAddress, [wmaticAddress, wethAddress, linkAddress], 20000, 5000, quickSwapFactory, quickSwapRouter);
     await product.deployed();
 
-    const wmaticStrategy = await Strategy.deploy(wmaticAddress, product.address);
+    const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
     await wmaticStrategy.deployed();
-    const wethStrategy = await Strategy.deploy(wethAddress, product.address);
+    const wethStrategy = await Strategy.deploy(dac.address, wethAddress, product.address);
     await wethStrategy.deployed();
-    const linkStrategy = await Strategy.deploy(linkAddress, product.address);
+    const linkStrategy = await Strategy.deploy(dac.address, linkAddress, product.address);
     await linkStrategy.deployed();
-    const usdcStrategy = await Strategy.deploy(usdcAddress, product.address);
+    const usdcStrategy = await Strategy.deploy(dac.address, usdcAddress, product.address);
     await usdcStrategy.deployed();
 
     return {
@@ -63,7 +63,7 @@ async function setUsdPriceModule(usdPriceModule: UsdPriceModule) {
     await usdPriceModule.addUsdPriceFeed(usdcAddress, usdcOracle);
 }
   
-  async function setProduct(product: Product, linkStrategy: Strategy, wmaticStrategy: Strategy, wethStrategy: Strategy, usdcStrategy: Strategy) {    
+async function setProduct(product: Product, linkStrategy: Strategy, wmaticStrategy: Strategy, wethStrategy: Strategy, usdcStrategy: Strategy) {    
     // add strategy 
     await product.addStrategy(linkStrategy.address);
     await product.addStrategy(wmaticStrategy.address);
