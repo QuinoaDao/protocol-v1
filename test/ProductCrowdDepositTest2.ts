@@ -194,8 +194,8 @@ async function activateProduct(dac: SignerWithAddress, product: Product, wMaticC
     await product.activateProduct();
 }
 
-describe("rebalance test",async () => {
-    it("calling reblance function - wmatic token deposit",async () => {
+describe("random token deposit & random token withdraw test",async () => {
+    it("random token deposit & random token withdraw; without rebalance",async () => {
         const signers = await ethers.getSigners();
         const {
             product, wmaticStrategy, 
