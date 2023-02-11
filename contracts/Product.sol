@@ -502,22 +502,32 @@ contract Product is ERC20, IProduct, SwapModule {
 
     function rebalance() external override onlyDac {
         require(isActive, "Product is disabled now");
-        
-        uint256 curretPortfolioValue = 0;
+
+        uint256 currentPortfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
             assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
-            curretPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
+            currentPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
         }
 
         // SELL
         for(uint i=0; i < assets.length; i++){
-            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
+            if(assets[i].assetAddress == _underlyingAssetAddress) { // usdc는 usdc로 sell 할 수 없음 
+                continue;
+            }
+
+            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); // decimal 맞춰주기
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                require(_redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
-            
-                //IERC20(assets[i].assetAddress).approve(getPairAddress(), sellAmount);
+                uint256 strategyAsset = IStrategy(strategies[assets[i].assetAddress]).totalAssets();
+
+                if(strategyAsset > sellAmount) {
+                    require(_redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
+                } else if(strategyAsset > 0) { // strategy asset이 0일때는 redeem 할 필요 X
+                    require(_redeemFromStrategy(strategies[assets[i].assetAddress], strategyAsset), "Redeem Failed");
+                }
+
                 IERC20(assets[i].assetAddress).approve(address(router), sellAmount);
                 _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
@@ -525,14 +535,18 @@ contract Product is ERC20, IProduct, SwapModule {
 
         // BUY
         for(uint i=0; i < assets.length; i++) {
-            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
+            if(assets[i].assetAddress == _underlyingAssetAddress) { // usdc는 usdc로 buy 할 수 없음
+                continue;
+            }
+
+            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); // decimal 맞춰주기
             uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
             IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
+
             if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
                 uint256 buyAmount = targetBalance - currentBalance;
-
                 uint256 amountInEstimated = _estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
-                //IERC20(_underlyingAssetAddress).approve(_swapModule.getRouterAddress(), amountInEstimated);
+
                 IERC20(_underlyingAssetAddress).approve(address(router), amountInEstimated);
                 _swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
