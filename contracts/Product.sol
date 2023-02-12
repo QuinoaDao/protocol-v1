@@ -4,17 +4,20 @@ pragma solidity ^0.8.17;
 import "./IProduct.sol";
 import "./IStrategy.sol";
 import "./UsdPriceModule.sol";
+import "./SwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "./SwapModule.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 
-contract Product is ERC20, IProduct, SwapModule {
+contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     using Math for uint256;
 
     AssetParams[] public assets;
     mapping (address => address) public strategies; // asset address => strategy address
     address[] public withdrawalQueue;
+    uint256 lastRebalanced;
+
     
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
@@ -27,6 +30,9 @@ contract Product is ERC20, IProduct, SwapModule {
     string private _dacName; 
     address private _dacAddress;
     uint256 private _sinceDate;
+    
+    address private _keeperRegistry;
+    uint256 private rebalanceInterval;
 
     UsdPriceModule private _usdPriceModule;
 
@@ -58,6 +64,7 @@ contract Product is ERC20, IProduct, SwapModule {
         string memory symbol_, 
         address dacAddress_, 
         string memory dacName_, 
+        address keeperRegistry_,
         address usdPriceModule_,
         address underlyingAssetAddress_,
         address[] memory assetAddresses_, 
@@ -83,6 +90,9 @@ contract Product is ERC20, IProduct, SwapModule {
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
         _usdPriceModule = UsdPriceModule(usdPriceModule_);
 
+        require(keeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
+        _keeperRegistry = keeperRegistry_;
+
         for (uint i=0; i<assetAddresses_.length; i++){
             require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
             if(_underlyingAssetAddress == assetAddresses_[i]) {
@@ -99,6 +109,8 @@ contract Product is ERC20, IProduct, SwapModule {
 
         factory = swapFactory_;
         router = IUniswapV2Router02(swapRouter_);
+
+        rebalanceInterval = 1 days; 
     }
 
     function currentStrategies() public view override returns(address[] memory) {
@@ -169,6 +181,12 @@ contract Product is ERC20, IProduct, SwapModule {
             require(found, "Asset not found");
         }
         require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
+    }
+
+    function updateKeeperRegistryAddress(address newKeeperRegistry_) external onlyDac {
+        require(newKeeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
+        require(newKeeperRegistry_ != _keeperRegistry, "Duplicated Address input");
+        _keeperRegistry = newKeeperRegistry_;
     }
 
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
@@ -500,7 +518,8 @@ contract Product is ERC20, IProduct, SwapModule {
         return shareAmount;
     }
 
-    function rebalance() external override onlyDac {
+    function rebalance() public override {
+        require(_msgSender() == _dacAddress || _msgSender() == _keeperRegistry, "Access Not allowed");
         require(isActive, "Product is disabled now");
 
         uint256 currentPortfolioValue = 0;
@@ -556,7 +575,35 @@ contract Product is ERC20, IProduct, SwapModule {
             } 
         }
         
+        lastRebalanced = block.timestamp;
         emit Rebalance(address(this), assets, block.timestamp);
+    }
+
+    function checkValidAllocation() internal returns(bool) {
+        uint256 curretPortfolioValue = 0;
+        for (uint i = 0; i < assets.length; i++) {
+            assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
+            curretPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
+        }
+        for (uint i=0; i < assets.length; i++) {
+            uint256 targetBalance = ((assets[i].targetWeight * curretPortfolioValue) / 100000) / assets[i].currentPrice;
+            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000 || currentBalance < targetBalance*(100000 - _deviationThreshold)/100000) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData) {
+        // check current weights allocated evenly?
+        upkeepNeeded = (!checkValidAllocation() || (lastRebalanced + rebalanceInterval < block.timestamp));
+        return(upkeepNeeded, bytes(""));
+    }
+
+    function performUpkeep(bytes calldata performData) external {
+        // call rebalance
+        rebalance();
     }
 
     // 몇 달러 max로 deposit할 수 있는지 반환
