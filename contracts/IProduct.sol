@@ -6,7 +6,18 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IProduct is IERC20, IERC20Metadata {
 
-    ///@dev Product에서 사용하는 underlying asset 1개의 정보를 담아놓는 구조체.
+    ///@notice Struct for product's information
+    struct ProductInfo {
+        string productName;
+        string productSymbol;
+        string dacName;
+        address dacAddress;
+        address underlyingAssetAddress;
+        uint256 floatRatio;
+        uint256 deviationThreshold;
+    }
+
+    ///@dev Struct for Product's asset information
     struct AssetParams {
         address assetAddress;
         uint256 targetWeight;
@@ -64,13 +75,13 @@ interface IProduct is IERC20, IERC20Metadata {
 
     function rebalance() external;
 
-    function maxDepositValue(address receiver) external returns(uint256);
-    function maxWithdrawValue(address owner) external returns (uint256);
+    function maxDepositValue(address receiver) external view returns(uint256);
+    function maxWithdrawValue(address owner) external view returns (uint256);
 
-    function convertToShares(address assetAddress, uint256 assetAmount) external returns(uint256 shareAmount);
-    function convertToAssets(address assetAddress, uint256 shareAmount) external returns(uint256 assetAmount);
+    function convertToShares(address assetAddress, uint256 assetAmount) external view returns(uint256 shareAmount);
+    function convertToAssets(address assetAddress, uint256 shareAmount) external view returns(uint256 assetAmount);
 
-    function sharePrice() external returns(uint256);
-    function shareValue(uint256 shareAmount) external returns(uint256);
+    function sharePrice() external view returns(uint256);
+    function shareValue(uint256 shareAmount) external view returns(uint256);
 
 }
