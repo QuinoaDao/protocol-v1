@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IProduct is IERC20, IERC20Metadata {
 
-    ///@notice Product를 배포할 때 필요한 info들을 암아놓는 구조체
+    ///@notice Struct for product's information
     struct ProductInfo {
         string productName;
         string productSymbol;
@@ -17,7 +17,7 @@ interface IProduct is IERC20, IERC20Metadata {
         uint256 deviationThreshold;
     }
 
-    ///@dev Product에서 사용하는 underlying asset 1개의 정보를 담아놓는 구조체.
+    ///@dev Struct for Product's asset information
     struct AssetParams {
         address assetAddress;
         uint256 targetWeight;

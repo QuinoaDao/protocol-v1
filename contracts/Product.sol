@@ -61,11 +61,11 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         
     constructor(
         ProductInfo memory productInfo_,
-        address keeperRegistry_, // 공통
-        address usdPriceModule_, // 공통
-        address[] memory assetAddresses_, // 없어도 됌
-        address swapFactory_, // 공통
-        address swapRouter_ // 공통
+        address keeperRegistry_, 
+        address usdPriceModule_, 
+        address[] memory assetAddresses_, 
+        address swapFactory_, 
+        address swapRouter_ 
         ) 
         ERC20 (productInfo_.productName, productInfo_.productSymbol)
     {
@@ -329,8 +329,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
         require(withdrawalQueue.length != 0, "No withdrawal Queue");
 
-        // dac이 일정 금액 이상 deposit하고 있어야 함
-        // 1인당 50달러 * 4명
         require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18), "Dac's deposit balance is too lower");
 
         isActive = true;
@@ -359,22 +357,18 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     }
 
     function deposit(address assetAddress, uint256 assetAmount, address receiver) external override returns (uint256) {
-        // dac은 deactive한 상태에도 넣을 수 있음
-        // deactive임 + dac이 아님 -> deposit 불가능
+        // Dac cannot deposit when product is in deactivation state
         require((_msgSender() == _dacAddress) || isActive, "Deposit is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
-        // deposit 양 maxDeposit이랑 비교 -> 50(55)달러가 상한선
-        // max deposit 계산 후 require
+        // Users can deposit only under $55
         uint256 depositValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
         require(depositValue < maxDepositValue(_msgSender()), "Too much deposit");
 
-        // dollar 기준 가격으로 share 양 계산하기
         uint256 shareAmount = _valueToShares(depositValue);
         require(shareAmount > 0, "short of deposit");
 
         SafeERC20.safeTransferFrom(IERC20(assetAddress), _msgSender(), address(this), assetAmount);
-        // SafeERC20.safeTransfer(IERC20(assetAddress), address(this), assetAmount); // token, to, value
-        // IERC20(assetAddress).transfer(address(this), assetAmount);
+
         _mint(receiver, shareAmount);
 
         emit Deposit(_msgSender(), receiver, assetAmount, shareAmount);
@@ -385,99 +379,78 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         require((_msgSender() != _dacAddress) || !isActive, "Withdrawal is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
 
-        // share값이 max인지 확인
         if(shareAmount == type(uint256).max) {
             shareAmount = balanceOf(owner);
         }
 
-        // share Amount에 대한 유효성 검사 진행
         require(shareAmount <= balanceOf(owner), "Too much withdrawal");
 
-        // 필요한 value가 얼만큼인지, asset으로 따지면 얼만큼이 되는지 확인
         uint256 withdrawalAmount = _valueToAssets(assetAddress, shareValue(shareAmount));
         require(withdrawalAmount > 0, "short of withdrawal");
         
-        // 해당 withdrawalAmount를 asset의 float과 비교
-        // asset의 float보다 withdrawalAmount가 크다면, 우선 float을 순회하고, 이후 withdrawal queue를 순회하는 로직이 필요
-        if (_assetBalanceOf(assetAddress, address(this)) < withdrawalAmount) { // withdraw 해야 할 amount가 더 많은 상황 (1차 필터링)
+        // Note
+        // If the product cannot afford the user's withdrawal amount from the float of the token that user wants to withdraw, 
+        // it should withdraw tokens from the another token float or strategy to cover it.
+        if (_assetBalanceOf(assetAddress, address(this)) < withdrawalAmount) {
             
-            // 1차 float 확보 과정 - float을 돌면서 asset float 확보 
-            for (uint i=0; i<assets.length; i++){
-                // 만약, 현재 asset 주소랑 assets의 주소가 같으면 pass
+            for (uint i=0; i<assets.length; i++){ // Withdraw tokens from the another float
                 address floatAssetAddress = assets[i].assetAddress;
                 
                 if(floatAssetAddress == assetAddress) {
                     continue;
                 }
 
-                // float Balance를 모두 확보 했는지 확인
                 uint256 floatAmount= _assetBalanceOf(assetAddress, address(this));
-                // 만약, 충분한 asset이 확보 되었다면 break (더 이상 자금을 확보할 이유가 없음)
-                if(floatAmount >= withdrawalAmount) {
+                if(floatAmount >= withdrawalAmount) { // Withdrawing is done
                     break;
                 }
-                
-                // 현재 탐색중인 float에서 확보해야만 하는 float balance가 얼마인지 확인
+
                 uint256 needAmount = _estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress);
                 
-                // 현재 탐색중인 float이 내가 확보해야만 하는 float balance보다 큰지, 작은지 비교 
-                // 내가 확보해야하는 float balance가 더 크다면(=현재 탐색중이 float이 부족하다면) 
-                // -> 현재 존재하는 float 전부를 withdraw 가능하도록 유저가 원하는 token으로 스왑 -> 일부분의 자금을 확보
                 if(needAmount > _assetBalanceOf(floatAssetAddress, address(this))) {
                     needAmount =  _assetBalanceOf(floatAssetAddress, address(this));
 
-                    // 해당 float에서 확보할 수 있는 자산이 하나도 없는 경우 pass
-                    if(_estimateSwapOutputAmount(needAmount, floatAssetAddress, assetAddress) == 0) {
+                    if(_estimateSwapOutputAmount(needAmount, floatAssetAddress, assetAddress) == 0) { // There is no float
                         continue;
                     }
                     
                     IERC20(floatAssetAddress).approve(address(router), needAmount);
                     _swapExactInput(needAmount, floatAssetAddress, assetAddress, address(this));
                 }
-                // 내가 확보해야하는 float balance가 더 작다면(=현재 탐색중인 float이 충분히 많은 경우) 
-                // -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
                 else {
                     IERC20(floatAssetAddress).approve(address(router), needAmount);
                     _swapExactOutput(withdrawalAmount - floatAmount, assets[i].assetAddress, assetAddress, address(this));
                 }
             }
 
-            // 2차 float 확보 과정 - withdrawal queue를 돌면서 asset float 확보
-            for (uint i=0; i<withdrawalQueue.length; i++){
-                // float Balance를 모두 확보 했는지 확인
+            for (uint i=0; i<withdrawalQueue.length; i++){ // Withdraw tokens from the strategy
+
                 uint256 floatAmount = _assetBalanceOf(assetAddress, address(this));
-                // 만약, 충분한 asset이 확보 되었다면 break (더 이상 자금을 확보할 이유가 없음)
-                if(floatAmount >= withdrawalAmount) {
+                if(floatAmount >= withdrawalAmount) { // Withdrawing is done
                     break;
                 }
 
                 address strategyAssetAddress = IStrategy(withdrawalQueue[i]).underlyingAsset();
-                // 유저가 원하는 assetAddress와 해당 strategy가 다루는 assetAddress가 같은지 확인
-                if(assetAddress == strategyAssetAddress) { // asset address와 같은 경우
+
+                if(assetAddress == strategyAssetAddress) {
                     uint256 needAmount = 
                         withdrawalAmount - floatAmount > IStrategy(withdrawalQueue[i]).totalAssets() ?
                         IStrategy(withdrawalQueue[i]).totalAssets()
                         :
                         withdrawalAmount - floatAmount;
                     
-                    // 인출 가능한 금액이 없음
                     if(needAmount == 0) {
                         continue;
                     }
 
-                    // 인출 진행
                     _redeemFromStrategy(withdrawalQueue[i], needAmount);
                 }
-                else { // 다른 경우
-                    // 현재 탐색중인 float에서 확보해야만 하는 float balance가 얼마인지 확인
+                else { 
                     uint256 needAmount = _estimateSwapInputAmount(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress);
-                    
-                    // 현재 탐색중인 float이 내가 확보해야만 하는 float balance보다 큰지, 작은지 비교 
-                    // 크다면 -> 현재 존재하는 float 전부를 withdraw 가능하도록 유저가 원하는 token으로 스왑 -> 일부분의 자금을 확보
+
                     if(needAmount > IStrategy(withdrawalQueue[i]).totalAssets()) {
                         needAmount =  IStrategy(withdrawalQueue[i]).totalAssets();
 
-                        // 해당 float에서 확보할 수 있는 자산이 하나도 없는 경우 pass
                         if(_estimateSwapOutputAmount(needAmount, strategyAssetAddress, assetAddress) == 0) {
                             continue;
                         }
@@ -485,7 +458,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                         IERC20(strategyAssetAddress).approve(address(router), needAmount);
                         _swapExactInput(needAmount, strategyAssetAddress, assetAddress, address(this));
                     }
-                    // 작다면 -> 현재 존재하는 float 중에서 필요한 balance 만큼만 스왑 -> 자금 확보
                     else {
                         IERC20(strategyAssetAddress).approve(address(router), needAmount);
                         _swapExactOutput(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress, address(this));
@@ -493,14 +465,15 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                 }
             }
 
-            // float 확보 실패 - 확보한 float 만큼으로 강제로 withdraw 가능 amount 조정
+            // Note
+            // If we withdraw as much as possible, but it is still less than the amount the user wants. 
+            // Then the amount that can be withdrawn is forcibly adjusted.
             if(withdrawalAmount>IERC20(assetAddress).balanceOf(address(this))) {
                 withdrawalAmount = IERC20(assetAddress).balanceOf(address(this));
                 shareAmount = convertToShares(assetAddress, withdrawalAmount);
             }
         }
         
-        // withdraw amount가 float보다 더 작은 상황 (1차 필터링 바로 성공)
         if(_msgSender() != owner) {
             _spendAllowance(owner, _msgSender(), shareAmount);
         }
@@ -519,17 +492,17 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         uint256 currentPortfolioValue = 0;
         for (uint i = 0; i < assets.length; i++) {
             assets[i].currentPrice = _usdPriceModule.getAssetUsdPrice(assets[i].assetAddress);
-            currentPortfolioValue += assetValue(assets[i].assetAddress); // stratey + float value
+            currentPortfolioValue += assetValue(assets[i].assetAddress); 
         }
 
         // SELL
         for(uint i=0; i < assets.length; i++){
-            if(assets[i].assetAddress == _underlyingAssetAddress) { // usdc는 usdc로 sell 할 수 없음 
+            if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 continue;
             }
 
-            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); // decimal 맞춰주기
-            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); 
+            uint256 currentBalance = assetBalance(assets[i].assetAddress); 
 
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
@@ -537,7 +510,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
                 if(strategyAsset > sellAmount) {
                     require(_redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
-                } else if(strategyAsset > 0) { // strategy asset이 0일때는 redeem 할 필요 X
+                } else if(strategyAsset > 0) { 
                     require(_redeemFromStrategy(strategies[assets[i].assetAddress], strategyAsset), "Redeem Failed");
                 }
 
@@ -548,12 +521,12 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
         // BUY
         for(uint i=0; i < assets.length; i++) {
-            if(assets[i].assetAddress == _underlyingAssetAddress) { // usdc는 usdc로 buy 할 수 없음
+            if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 continue;
             }
 
-            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); // decimal 맞춰주기
-            uint256 currentBalance = assetBalance(assets[i].assetAddress); // current asset balance
+            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); 
+            uint256 currentBalance = assetBalance(assets[i].assetAddress);
             IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
 
             if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
@@ -600,21 +573,18 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         rebalance();
     }
 
-    // 몇 달러 max로 deposit할 수 있는지 반환
     function maxDepositValue(address receiver) public view override returns (uint256){
         if(receiver == _dacAddress) return type(uint256).max;
         else return 55 * 1e18;
-    } // for deposit
+    }
 
-    // 몇 달러 max로 withdraw할 수 있는지 반환
     function maxWithdrawValue(address owner) public view override returns (uint256) {
         return shareValue(balanceOf(owner));
-    } // for withdraw
+    } 
 
     function _depositIntoStrategy(address strategyAddress, uint256 assetAmount) private returns(bool){
         require(isActive, "Product is disabled now");
         address assetAddress = IStrategy(strategyAddress).underlyingAsset();
-         // 실패하면 revert
         SafeERC20.safeTransfer(IERC20(assetAddress), strategyAddress, assetAmount); // token, to, value
         return true;
     } 
@@ -623,45 +593,28 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         return IStrategy(strategyAddress).withdrawToProduct(assetAmount);
     }
 
-    // asset amount 받고, 이에 맞는 share 개수 반환
     function convertToShares(address assetAddress, uint256 assetAmount) public view override returns(uint256 shareAmount) {
-        // assetAddress 존재 안하는거 확인 ?
         uint256 _assetValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
         return _valueToShares(_assetValue);
     }
 
-    // share amount 받고, 이에 맞는 asset 개수 반환
     function convertToAssets(address assetAddress, uint256 shareAmount) public view override returns(uint256 assetAmount) {
-        // assetAddress 존재 안하는거 확인 ?
         uint256 _shareValue = shareValue(shareAmount);
         return _valueToAssets(assetAddress, _shareValue);
     }
     
-    // asset의 dollar 양 받고, share 토큰 개수 반환
-    // 수식 : deposit asset value * total share supply / portfolio value
-    // vault가 비어있다면 1:1 반환
     function _valueToShares(uint256 _assetValue) internal view returns(uint256 shareAmount) {
         return totalSupply() > 0 ? (_assetValue * totalSupply()) / portfolioValue() : _assetValue;
     } 
 
-    // share의 dollar 양 받고, asset의 개수 반환
-    // 수식 : withdraw share value / asset Price
-    // vault가 비어있어도 share가 존재한다는 가정 하에 _shareValue가 들어온 것이므로 shareValue를 토큰의 UsdPrice로 나눈 값을 반환
-    // 걱정이네욥 
-    // 1. usdc decimal을 전혀 고려 못하고 있음
-    // 2. 무조건 decimal 18로 고정해서 넘겨줌
     function _valueToAssets(address _assetAddress, uint256 _shareValue) internal view returns(uint256 assetAmount) {
         return _usdPriceModule.convertAssetBalance(_assetAddress, _shareValue);
     }
 
-    // shareToken 1개의 가격 정보 반환
-    // vault가 비어있다면 1$ 반환
     function sharePrice() public view override returns(uint256) {
         return totalSupply() > 0 ? portfolioValue() * 1e18 / totalSupply() : 10**decimals();
     }
 
-    // share Token 여러개의 가격 정보 반환
-    // vault가 비어있다면 1개당 1$로 계산해서 반환
     function shareValue(uint256 shareAmount) public view override returns(uint256) {
         return totalSupply() > 0 ? (portfolioValue() * shareAmount) / totalSupply() : shareAmount;
     }

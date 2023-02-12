@@ -45,13 +45,12 @@ contract Strategy is IStrategy {
     }
 
     function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) {
-        // safeTransfer -> 실패하면 revert
-        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount); // token, to, value
+        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount);
         return true;
     }
 
     function withdrawAllToProduct() external onlyDac returns(bool) {
-        // product가 deactivate 상태에서만 호출 가능
+        // If product is in activation state, Dac cannot call this method
         require(!IProduct(_productAddress).checkActivation(), "Product is active now");
         SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, totalAssets());
         return true;
