@@ -329,7 +329,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
         require(withdrawalQueue.length != 0, "No withdrawal Queue");
 
-        require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18), "Dac's deposit balance is too lower");
+        // require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18), "Dac's deposit balance is too lower");
 
         isActive = true;
 

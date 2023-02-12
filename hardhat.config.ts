@@ -13,8 +13,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            // runs: 800,
-            runs: 100
+            runs: 400,
           },
         },
       },
@@ -47,7 +46,7 @@ const config: HardhatUserConfig = {
       },
     },
     mumbai : {
-      url: process.env.MUMBAI_URL || "https://rpc-mumbai.maticvigil.com/",
+      url: "https://rpc-mumbai.maticvigil.com/",
       accounts: [process.env.TEST_ACC1 || "" , process.env.TEST_ACC2 || ""]
     },
   },
