@@ -38,7 +38,7 @@ contract SwapModule {
         router.swapExactTokensForTokens(amountIn, tokenAmountOutMin, path, quinoaVault, block.timestamp);
     }
 
-    function _estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) public view returns (uint256) { 
+    function _estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) internal view returns (uint256) { 
 
         if(amountIn == 0){
             return 0;
@@ -73,7 +73,7 @@ contract SwapModule {
         router.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, quinoaVault, block.timestamp);
     }
 
-    function _estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) public view returns (uint256) {
+    function _estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) internal view returns (uint256) {
 
         if(amountOut == 0){
             return 0;

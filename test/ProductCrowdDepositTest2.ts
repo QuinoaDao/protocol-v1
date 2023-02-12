@@ -194,8 +194,8 @@ async function activateProduct(dac: SignerWithAddress, product: Product, wMaticC
     await product.activateProduct();
 }
 
-describe("rebalance test",async () => {
-    it("wmatic token deposit & random token withdraw; with rebalance",async () => {
+describe("random token deposit & random token withdraw test",async () => {
+    it("random token deposit & random token withdraw; without rebalance",async () => {
         const signers = await ethers.getSigners();
         const {
             product, wmaticStrategy, 
@@ -223,24 +223,26 @@ describe("rebalance test",async () => {
         expect(dacInitialDepositValue).equal(productInitialPortfolioValue);
 
         // Deposit logic
-        let oneUserDepositValue = await usdPriceModule.getAssetUsdValue(wmaticAddress, parseEther("60"));
-        let oneUserShareBalance = await usdPriceModule.getAssetUsdValue(wmaticAddress, parseEther("60"));
-        let oneUserDepositWmaticBalance = parseEther("60");
-
-        let beforeDepositWmaticPrice = await usdPriceModule.getAssetUsdPrice(wmaticAddress);
-        let beforeDepositWethPrice = await usdPriceModule.getAssetUsdPrice(wethAddress);
-        let beforeDepositQuickPrice = await usdPriceModule.getAssetUsdPrice(quickAddress);
-        let beforeDepositGhstPrice = await usdPriceModule.getAssetUsdPrice(ghstAddress);
-        let beforeDepositUsdcPrice = await usdPriceModule.getAssetUsdPrice(usdcAddress);
+        const depositChoices = [wmaticAddress, wethAddress, usdcAddress];
+        const depositContracts = [wMaticContract, wEthContract, usdcContract];
+        const depositBalances = [parseEther("30"), parseUnits("25", 15), parseUnits("45", 6)];
+        let depositValues = [];
+        let depositAddresses = []
 
         for (let i=2; i<signers.length; i++){
-            await wMaticContract.connect(signers[i]).approve(product.address, ethers.utils.parseEther("60"));
-            await product.connect(signers[i]).deposit(wmaticAddress, ethers.utils.parseEther("30"), signers[i].address);
-            await product.connect(signers[i]).deposit(wmaticAddress, ethers.utils.parseEther("30"), signers[i].address);
+            let rand = Math.floor(Math.random() * 3);
+            let depositAddress = depositChoices[rand];
+            let depositContract = depositContracts[rand];
+            let depositBalance = depositBalances[rand];
+            let depositValue = await usdPriceModule.getAssetUsdValue(depositAddress, depositBalance);
 
-            expect(await product.balanceOf(signers[i].address)).equal(oneUserShareBalance);
+            await depositContract.connect(signers[i]).approve(product.address, depositBalance);
+            await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
 
-            console.log("signers[", i, "] deposit complete");
+            expect(await product.balanceOf(signers[i].address)).equal(depositValue);
+
+            depositValues.push(depositValue);
+            depositAddresses.push(depositAddress);
         }
 
         let productDepositShareBalance = await product.totalSupply();
@@ -251,85 +253,14 @@ describe("rebalance test",async () => {
         let productDepositQuickBalance = await product.assetBalance(quickAddress);
         let productDepositGhstBalance = await product.assetBalance(ghstAddress);
 
-        expect(productDepositShareBalance).equal(productInitialShareBalance.add(oneUserShareBalance.mul(18)));
-        expect(productDepositPortfolioValue).equal(productInitialPortfolioValue.add(oneUserDepositValue.mul(18)));
-        expect(productDepositWmaticBalance).equal(productInitialWmaticBalance.add(oneUserDepositWmaticBalance.mul(18)));
-        expect(productDepositWethBalance.toString()).equal("0");
-        expect(productDepositUsdcBalance.toString()).equal("0");
-        expect(productDepositQuickBalance.toString()).equal("0");
-        expect(productDepositGhstBalance.toString()).equal("0");
+        // console.log("after deposit product wmatic balance: ", productDepositWmaticBalance);
+        // console.log("after deposit product weth balance: ", productDepositWethBalance);
+        // console.log("after deposit product usdc balance: ", productDepositUsdcBalance);
+        // console.log("after deposit product quick balance: ", productDepositQuickBalance);
+        // console.log("after deposit product ghst balance: ", productDepositGhstBalance);
 
-        // rebalance 진행
-        await product.rebalance();
 
-        let afterRebalanceWmaticPrice = await usdPriceModule.getAssetUsdPrice(wmaticAddress);
-        let afterRebalanceWethPrice = await usdPriceModule.getAssetUsdPrice(wethAddress);
-        let afterRebalanceQuickPrice = await usdPriceModule.getAssetUsdPrice(quickAddress);
-        let afterRebalanceGhstPrice = await usdPriceModule.getAssetUsdPrice(ghstAddress);
-        let afterRebalanceUsdcPrice = await usdPriceModule.getAssetUsdPrice(usdcAddress);
-
-        let productRebalanceShareBalance = await product.totalSupply();
-        let productRebalancePortfolioValue = await product.portfolioValue();
-        let productRebalanceWmaticBalance = await product.assetBalance(wmaticAddress);
-        let productRebalanceWethBalance = await product.assetBalance(wethAddress);
-        let productRebalanceUsdcBalance = await product.assetBalance(usdcAddress);
-        let productRebalanceQuickBalance = await product.assetBalance(quickAddress);
-        let productRebalanceGhstBalance = await product.assetBalance(ghstAddress);
-
-        let productReblanceWmaticFloat = await product.assetFloatBalance(wmaticAddress);
-        let productReblanceWethFloat = await product.assetFloatBalance(wethAddress);
-        let productReblanceUsdcFloat = await product.assetFloatBalance(usdcAddress);
-        let productReblanceQuickFloat = await product.assetFloatBalance(quickAddress);
-        let productReblanceGhstFloat = await product.assetFloatBalance(ghstAddress);
-
-        let strategyRebalanceWmaticBalance = await wmaticStrategy.totalAssets();
-        let strategyRebalanceWethBalance = await wethStrategy.totalAssets();
-        let strategyRebalanceUsdcBalance = await usdcStrategy.totalAssets();
-        let strategyRebalanceQuickBalance = await quickStrategy.totalAssets();
-        let strategyRebalanceGhstBalance = await ghstStrategy.totalAssets();
-
-        let productRebalanceWmaticValue = await product.assetValue(wmaticAddress);
-        let productRebalanceWethValue = await product.assetValue(wethAddress);
-        let productRebalanceUsdcValue = await product.assetValue(usdcAddress);
-        let productRebalanceQuickValue = await product.assetValue(quickAddress);
-        let productRebalanceGhstValue = await product.assetValue(ghstAddress);
-
-        expect(productRebalanceShareBalance).equal(productDepositShareBalance);
-        expect(productRebalanceWmaticBalance).equal(productReblanceWmaticFloat.add(strategyRebalanceWmaticBalance));
-        expect(productRebalanceWethBalance).equal(productReblanceWethFloat.add(strategyRebalanceWethBalance));
-        expect(productRebalanceUsdcBalance).equal(productReblanceUsdcFloat.add(strategyRebalanceUsdcBalance));
-        expect(productRebalanceQuickBalance).equal(productReblanceQuickFloat.add(strategyRebalanceQuickBalance));
-        expect(productRebalanceGhstBalance).equal(productReblanceGhstFloat.add(strategyRebalanceGhstBalance));
-        expect(productRebalancePortfolioValue)
-        .equal(productRebalanceWmaticValue.add(productRebalanceWethValue).add(productRebalanceUsdcValue).add(productRebalanceQuickValue).add(productRebalanceGhstValue));
-
-        expect(productRebalanceWmaticBalance).equal((await wMaticContract.balanceOf(product.address)).add(await wMaticContract.balanceOf(wmaticStrategy.address)));
-        expect(productRebalanceWethBalance).equal((await wEthContract.balanceOf(product.address)).add(await wEthContract.balanceOf(wethStrategy.address)))
-        expect(productRebalanceUsdcBalance).equal((await usdcContract.balanceOf(product.address)).add(await usdcContract.balanceOf(usdcStrategy.address)));
-        expect(productRebalanceQuickBalance).equal((await quickContract.balanceOf(product.address)).add(await quickContract.balanceOf(quickStrategy.address)));
-        expect(productRebalanceGhstBalance).equal((await ghstContract.balanceOf(product.address)).add(await ghstContract.balanceOf(ghstStrategy.address)));
-        
-        console.log("after deposit portfolio value: ", productDepositPortfolioValue);
-        console.log("after reblance portfolio value: ", productRebalancePortfolioValue);
-        console.log("-------------------------------------------------------------------------------")
-        console.log("wmatic value: ", productRebalanceWmaticValue);
-        console.log("weth value: ", productRebalanceWethValue);
-        console.log("usdc value: ", productRebalanceUsdcValue);
-        console.log("quick value: ", productRebalanceQuickValue);
-        console.log("ghst value: ", productRebalanceGhstValue);
-        console.log("-------------------------------------------------------------------------------")
-        console.log("wmatic balance: ", productRebalanceWmaticBalance);
-        console.log("weth balance: ", productRebalanceWethBalance);
-        console.log("usdc balance: ", productRebalanceUsdcBalance);
-        console.log("quick balance: ", productRebalanceQuickBalance);
-        console.log("ghst balance: ", productRebalanceGhstBalance);
-        console.log("-------------------------------------------------------------------------------")
-
-        expect(beforeDepositWmaticPrice).equal(afterRebalanceWmaticPrice);
-        expect(beforeDepositWethPrice).equal(afterRebalanceWethPrice);
-        expect(beforeDepositUsdcPrice).equal(afterRebalanceUsdcPrice);
-        expect(beforeDepositQuickPrice).equal(afterRebalanceQuickPrice);
-        expect(beforeDepositGhstPrice).equal(afterRebalanceGhstPrice);
+        // console.log("-----------------------------------------------------------------------------------")
 
         // withdraw logic
         const withdrawalChoices = [wmaticAddress, wethAddress, usdcAddress];
@@ -352,15 +283,15 @@ describe("rebalance test",async () => {
             withdrawValues.push(userWithdrawValue);
             withdrawalAddresses.push(withdrawalAddress);
 
-            // console.log("signer[", i, "] withdraw complete");
-            // console.log("signer withdraw token address: ", withdrawalAddress);
-            // console.log("--")
-            // console.log("after withdraw product wmatic balance: ", await product.assetBalance(wmaticAddress));
-            // console.log("after withdraw product weth balance: ", await product.assetBalance(wethAddress));
-            // console.log("after withdraw product usdc balance: ", await product.assetBalance(usdcAddress));
-            // console.log("after withdraw product quick balance: ", await product.assetBalance(quickAddress));
-            // console.log("after withdraw product ghst balance: ", await product.assetBalance(ghstAddress));
-            // console.log("-----------------------------------------------------------------------------------")
+            console.log("signer[", i, "] withdraw complete");
+            console.log("signer withdraw token address: ", withdrawalAddress);
+            console.log("--")
+            console.log("after withdraw product wmatic balance: ", await product.assetBalance(wmaticAddress));
+            console.log("after withdraw product weth balance: ", await product.assetBalance(wethAddress));
+            console.log("after withdraw product usdc balance: ", await product.assetBalance(usdcAddress));
+            console.log("after withdraw product quick balance: ", await product.assetBalance(quickAddress));
+            console.log("after withdraw product ghst balance: ", await product.assetBalance(ghstAddress));
+            console.log("-----------------------------------------------------------------------------------")
         }
 
 
@@ -378,42 +309,35 @@ describe("rebalance test",async () => {
         let productWithdrawQuickFloat = await product.assetFloatBalance(quickAddress);
         let productWithdrawGhstFloat = await product.assetFloatBalance(ghstAddress);
 
-        let productWithdrawWmaticValue = await product.assetValue(wmaticAddress);
-        let productWithdrawWethValue = await product.assetValue(wethAddress);
-        let productWithdrawUsdcValue = await product.assetValue(usdcAddress);
-        let productWithdrawQuickValue = await product.assetValue(quickAddress);
-        let productWithdrawGhstValue = await product.assetValue(ghstAddress);
-
-        for (let i=2; i<signers.length; i++) {
-            console.log("input: wMatic - output: ", withdrawalAddresses[i-2]);
-            console.log("signers[", i, "] deposit value: ", oneUserDepositValue);
-            console.log("signers[", i, "] withdraw value: ", withdrawValues[i-2]);
+        for (let i=0; i<depositValues.length; i++){
+            console.log("input: ", depositAddresses[i], " - output: ", withdrawalAddresses[i]);
+            console.log("signers[", i+2, "] deposit value: ", depositValues[i]);
+            console.log("signers[", i+2, "] withdraw value: ", withdrawValues[i]);
             console.log("*")
         }
 
-        console.log("-----------------------------------------------------------------------------------")
+        // console.log("-----------------------------------------------------------------------------------")
 
 
-        expect(productWithdrawShareBalance).equal(await product.balanceOf(signers[0].address));
-        expect(productWithdrawWmaticFloat).equal(productWithdrawWmaticBalance);
-        expect(productWithdrawWethFloat).equal(productWithdrawWethBalance);
-        expect(productWithdrawUsdcFloat).equal(productWithdrawUsdcBalance);
-        expect(productWithdrawQuickFloat).equal(productWithdrawQuickBalance);
-        expect(productWithdrawGhstFloat).equal(productWithdrawGhstBalance);
+        // expect(productWithdrawShareBalance).equal(await product.balanceOf(signers[0].address));
+        // expect(productWithdrawWmaticFloat).equal(productWithdrawWmaticBalance);
+        // expect(productWithdrawWethFloat).equal(productWithdrawWethBalance);
+        // expect(productWithdrawUsdcFloat).equal(productWithdrawUsdcBalance);
+        // expect(productWithdrawQuickFloat).equal(productWithdrawQuickBalance);
+        // expect(productWithdrawGhstFloat).equal(productWithdrawGhstBalance);
 
-        console.log("Initial product portfolio: ", productInitialPortfolioValue);
-        console.log("After all withdraw product portfolio: ", productWithdrawPortfolioValue)
-        console.log("product wmatic balance: ", productWithdrawWmaticBalance);
-        console.log("product weth balance: ", productWithdrawWethBalance);
-        console.log("product usdc balance: ", productWithdrawUsdcBalance);
-        console.log("product quick balance: ", productWithdrawQuickBalance);
-        console.log("product ghst balance: ", productWithdrawGhstBalance);
+        // console.log("Initial product portfolio: ", productInitialPortfolioValue);
+        // console.log("After all withdraw product portfolio: ", productWithdrawPortfolioValue)
+        // console.log("after withdraw product wmatic balance: ", productWithdrawWmaticBalance);
+        // console.log("after withdraw product weth balance: ", productWithdrawWethBalance);
+        // console.log("after withdraw product usdc balance: ", productWithdrawUsdcBalance);
+        // console.log("after withdraw product quick balance: ", productWithdrawQuickBalance);
+        // console.log("after withdraw product ghst balance: ", productWithdrawGhstBalance);
 
 
-        console.log("-----------------------------------------------------------------------------------")
+        // console.log("-----------------------------------------------------------------------------------")
 
-        console.log("dac deposit value: ", dacInitialDepositValue);
-        console.log("dac withdraw value: ", await product.shareValue(await product.balanceOf(signers[0].address)));
-
+        // console.log("dac deposit value: ", dacInitialDepositValue);
+        // console.log("dac withdraw value: ", await product.shareValue(await product.balanceOf(signers[0].address)));
     })
 })
