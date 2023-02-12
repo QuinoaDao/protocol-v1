@@ -60,31 +60,25 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     }
         
     constructor(
-        string memory name_, 
-        string memory symbol_, 
-        address dacAddress_, 
-        string memory dacName_, 
-        address keeperRegistry_,
-        address usdPriceModule_,
-        address underlyingAssetAddress_,
-        address[] memory assetAddresses_, 
-        uint256 floatRatio_,
-        uint256 deviationThreshold_,
-        address swapFactory_,
-        address swapRouter_
+        ProductInfo memory productInfo_,
+        address keeperRegistry_, // 공통
+        address usdPriceModule_, // 공통
+        address[] memory assetAddresses_, // 없어도 됌
+        address swapFactory_, // 공통
+        address swapRouter_ // 공통
         ) 
-        ERC20 (name_, symbol_)
+        ERC20 (productInfo_.productName, productInfo_.productSymbol)
     {
         
         _sinceDate = block.timestamp;
         isActive = false;
 
-        require(dacAddress_ != address(0x0), "Invalid dac address");
-        _dacAddress = dacAddress_;
-        _dacName = dacName_;
+        require(productInfo_.dacAddress != address(0x0), "Invalid dac address");
+        _dacAddress = productInfo_.dacAddress;
+        _dacName = productInfo_.dacName;
 
-        require(underlyingAssetAddress_ != address(0x0), "Invalid Underlying Asset Address");
-        _underlyingAssetAddress = underlyingAssetAddress_;
+        require(productInfo_.underlyingAssetAddress != address(0x0), "Invalid Underlying Asset Address");
+        _underlyingAssetAddress = productInfo_.underlyingAssetAddress;
         assets.push(AssetParams(_underlyingAssetAddress, 0, 0));
 
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
@@ -101,11 +95,11 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
             assets.push(AssetParams(assetAddresses_[i], 0, 0)); 
         }
 
-        require((floatRatio_ >= 0) || (floatRatio_ <= 100000), "Invalid float ratio");
-        _floatRatio = floatRatio_;
+        require((productInfo_.floatRatio >= 0) || (productInfo_.floatRatio <= 100000), "Invalid float ratio");
+        _floatRatio = productInfo_.floatRatio;
         
-        require((deviationThreshold_ >= 0) || (deviationThreshold_ <= 10000), "Invalid Rebalance Threshold");
-        _deviationThreshold = deviationThreshold_;
+        require((productInfo_.deviationThreshold >= 0) || (productInfo_.deviationThreshold <= 10000), "Invalid Rebalance Threshold");
+        _deviationThreshold = productInfo_.deviationThreshold;
 
         factory = swapFactory_;
         router = IUniswapV2Router02(swapRouter_);

@@ -44,19 +44,17 @@ async function deployContracts() {
     const usdPriceModule = await UsdPriceModule.deploy();
     await usdPriceModule.deployed();
   
-    const product = await Product.deploy(
-      "Quinoa test Product",
-      "qTEST",
-      dac.address,
-      "Quinoa DAC",
-      usdPriceModule.address,
-      usdcAddress,
-      [wmaticAddress, wethAddress],
-      20000,
-      5000,
-      quickSwapFactory,
-      quickSwapRouter
-    );
+    const productInfo = {
+      productName: "Quinoa test Product",
+      productSymbol: "qTEST",
+      dacName: "Quinoa DAC",
+      dacAddress: dac.address,
+      underlyingAssetAddress: usdcAddress,
+      floatRatio: 20000,
+      deviationThreshold: 5000
+    }
+
+    const product = await Product.deploy(productInfo, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
     await product.deployed();
   
     const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
