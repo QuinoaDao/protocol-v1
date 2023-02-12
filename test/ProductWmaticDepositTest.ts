@@ -44,19 +44,17 @@ async function deployContracts() {
   const usdPriceModule = await UsdPriceModule.deploy();
   await usdPriceModule.deployed();
 
-  const product = await Product.deploy(
-    "Quinoa test Product",
-    "qTEST",
-    dac.address,
-    "Quinoa DAC",
-    usdPriceModule.address,
-    usdcAddress,
-    [wmaticAddress, wethAddress],
-    20000,
-    5000,
-    quickSwapFactory,
-    quickSwapRouter
-  );
+  const productInfo = {
+    productName: "Quinoa test Product",
+    productSymbol: "qTEST",
+    dacName: "Quinoa DAC",
+    dacAddress: dac.address,
+    underlyingAssetAddress: usdcAddress,
+    floatRatio: 20000,
+    deviationThreshold: 5000
+  }
+
+  const product = await Product.deploy(productInfo, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
   await product.deployed();
 
   const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
@@ -220,22 +218,19 @@ describe('activation test',async () => {
     const {wMaticContract} =await getTokens(dac, nonDac);
 
     const Product = await ethers.getContractFactory("Product");
-    const product = await Product.deploy(
-      "Quinoa test Product", // name
-      "qTEST", // symbol
-      dac.address, // dac address
-      "Quinoa DAC", // dac name
-      usdPriceModule.address, // usd price module
-      usdcAddress, // underlying assets address
-      [wmaticAddress, wethAddress], // assets
-      20000, // float ratio
-      5000, // deviation threashold
-      quickSwapFactory, // swap factory
-      quickSwapRouter // swap router
-    );
-    await product.deployed();
 
-    // 세팅 불가 항목 list
+    const productInfo = {
+      productName: "Quinoa test Product",
+      productSymbol: "qTEST",
+      dacName: "Quinoa DAC",
+      dacAddress: dac.address,
+      underlyingAssetAddress: usdcAddress,
+      floatRatio: 20000,
+      deviationThreshold: 5000
+    }
+
+    const product = await Product.deploy(productInfo, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    await product.deployed();
 
     // strategy가 맞게 존재하는지 확인
     await product.addAsset(ghstAddress);
