@@ -36,28 +36,6 @@ async function deployContracts() {
     const usdPriceModule = await UsdPriceModule.deploy();
     await usdPriceModule.deployed();
 
-  
-
-
-    /**
-    /  constructor parameter list: 
-    /  ProductInfo memory productInfo_
-    /  address keeperRegistry_
-    /  address usdPriceModule_
-    /  address[] memory assetAddresses_
-    /  address swapFactory_
-    /  address swapRouter_ 
-    /
-    /  productInfo structure: 
-    /  string productName;
-    /  string productSymbol;
-    /  string dacName;
-    /  address dacAddress;
-    /  address underlyingAssetAddress;
-    /  uint256 floatRatio;
-    /  uint256 deviationThreshold;
-    */
-
     const productInfo = {
       productName: "Quinoa test Product",
       productSymbol: "qTEST",
