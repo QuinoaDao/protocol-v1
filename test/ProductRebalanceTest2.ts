@@ -21,7 +21,7 @@ const quickSwapRouter = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff";
 const wmaticAddress = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
 const wethAddress = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
 const ghstAddress = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
-const quickAddress = "0xB5C064F955D8e7F38fE0460C556a72987494eE17";
+const quickAddress = "0x831753dd7087cac61ab5644b308642cc1c33dc13";
 const usdcAddress = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
 
 const wmaticOracle = "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0";
@@ -139,7 +139,7 @@ async function setProduct(
       quickStrategy.address,
     ]);
 }
-  
+let cnt = 0
 async function distributionTokens(signers: SignerWithAddress[]) {
     const wMaticContract = new ethers.Contract(wmaticAddress, wMaticAbi, signers[0]);
     const wEthContract = new ethers.Contract(wethAddress, wEthAbi, signers[0]);
@@ -174,6 +174,9 @@ async function distributionTokens(signers: SignerWithAddress[]) {
 
         await wMaticContract.connect(val).approve(quickSwapRouter, amountIn);
         await swapContract.connect(val).swapTokensForExactTokens(amountOut, amountIn, path, val.address, Date.now() + 10000*60, {gasLimit: 251234});
+
+        console.log("distribution clear: ", cnt);
+        cnt+=1;
     }
 
     return {
@@ -241,6 +244,8 @@ describe("rebalance test 2",async () => {
 
             depositValues_1.push(depositValue);
             depositAddresses_1.push(depositAddress);
+
+            console.log("deposit first", i);
         }
 
         const assetAddresses = [wmaticAddress, wethAddress, usdcAddress, quickAddress, ghstAddress]; 
@@ -283,6 +288,7 @@ describe("rebalance test 2",async () => {
             // console.log("signer[", i, "] withdraw complete");
             // console.log("signer withdraw token address: ", withdrawalAddress);
             // console.log("-----------------------------------------------------------------------------------")
+            console.log("withdraw first", i);
         }
 
         console.log("\nbefore_rebalance_portfolio_value,",(await product.portfolioValue()).toString());
@@ -314,6 +320,8 @@ describe("rebalance test 2",async () => {
 
             depositValues_2.push(depositValue);
             depositAddresses_2.push(depositAddress);
+
+            console.log("deposit second", i);
         }
         
         console.log("\nbefore_rebalance_portfolio_value,",(await product.portfolioValue()).toString());
@@ -351,6 +359,7 @@ describe("rebalance test 2",async () => {
             // console.log("signer[", i, "] withdraw complete");
             // console.log("signer withdraw token address: ", withdrawalAddress);
             // console.log("-----------------------------------------------------------------------------------")
+            console.log("withdraw second", i);
         }
 
         console.log("\nbefore_rebalance_portfolio_value, ",(await product.portfolioValue()).toString());
