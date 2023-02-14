@@ -521,21 +521,19 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
         // BUY
         for(uint i=0; i < assets.length; i++) {
-            if(assets[i].assetAddress == _underlyingAssetAddress) { 
-                continue;
-            }
-
             uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); 
             uint256 currentBalance = assetBalance(assets[i].assetAddress);
             IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
+            if(assets[i].assetAddress != _underlyingAssetAddress) {
+                if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
+                    uint256 buyAmount = targetBalance - currentBalance;
+                    uint256 amountInEstimated = _estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
 
-            if (currentBalance < targetBalance*(100000 - _deviationThreshold) / 100000) {
-                uint256 buyAmount = targetBalance - currentBalance;
-                uint256 amountInEstimated = _estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
-
-                IERC20(_underlyingAssetAddress).approve(address(router), amountInEstimated);
-                _swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
+                    IERC20(_underlyingAssetAddress).approve(address(router), amountInEstimated);
+                    _swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
+                }
             }
+
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
             if(newFloatBalance > targetBalance*_floatRatio / 100000){
                 require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio/100000), "Deposit into Strategy Failed");
