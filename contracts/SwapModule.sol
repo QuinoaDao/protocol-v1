@@ -7,6 +7,8 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "./ISwapModule.sol";
 
+import "hardhat/console.sol";
+
 contract SwapModule {
     address public factory;
     IUniswapV2Router02 public router;
@@ -69,6 +71,9 @@ contract SwapModule {
 
         // set slippate to 0.5%
         uint tokenAmountInMax = amountIn * (1000 + 5) / 1000;
+        console.log("in swap exact output");
+        console.log("amountInMax: ", tokenAmountInMax);
+        console.log("amountOut: ", amountOut);
         router.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, quinoaVault, block.timestamp);
     }
 

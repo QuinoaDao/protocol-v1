@@ -33,6 +33,10 @@ const usdcOracle = "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7";
 const uniAddress = "0xb33EaAd8d922B1083446DC23f610c2567fB5180f";
 const uniOracle = "0xdf0Fb4e4F928d2dCB76f438575fDD8682386e13C";
 
+function delay(ms: number) {
+    return new Promise( resolve => setTimeout(resolve, ms) );
+}
+
 async function deployContracts(dac: SignerWithAddress, nonDac: SignerWithAddress) {
     // Deploy the contract to the test network
     const Product = await ethers.getContractFactory("Product");
@@ -149,6 +153,9 @@ async function distributionTokens(signers: SignerWithAddress[]) {
     const swapContract = new ethers.Contract(quickSwapRouter, quickSwapAbi, signers[0]);
 
     for(const val of signers) {
+
+        await delay(50);
+
         // wmatic
         await wMaticContract
         .connect(val)
@@ -239,6 +246,7 @@ describe("rebalance test 2",async () => {
 
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
+            await delay(50);
 
             expect(await product.balanceOf(signers[i].address)).equal(depositValue);
 
@@ -281,7 +289,8 @@ describe("rebalance test 2",async () => {
 
             await product.connect(signers[i]).withdraw(withdrawalAddress, ethers.constants.MaxUint256, signers[i].address, signers[i].address);
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawalAddress, (await withdrawalContract.balanceOf(signers[i].address)).sub(beforeWithdrawalBalance));
-
+            await delay(50);
+            
             withdrawValues_1.push(userWithdrawValue);
             withdrawalAddresses_1.push(withdrawalAddress);
 
@@ -317,6 +326,7 @@ describe("rebalance test 2",async () => {
 
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
+            await delay(50);
 
             depositValues_2.push(depositValue);
             depositAddresses_2.push(depositAddress);
@@ -352,6 +362,7 @@ describe("rebalance test 2",async () => {
 
             await product.connect(signers[i]).withdraw(withdrawalAddress, ethers.constants.MaxUint256, signers[i].address, signers[i].address);
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawalAddress, (await withdrawalContract.balanceOf(signers[i].address)).sub(beforeWithdrawalBalance));
+            await delay(50);
 
             withdrawValues_2.push(userWithdrawValue);
             withdrawalAddresses_2.push(withdrawalAddress);
