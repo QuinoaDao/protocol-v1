@@ -290,7 +290,7 @@ describe("rebalance test 2",async () => {
             await product.connect(signers[i]).withdraw(withdrawalAddress, ethers.constants.MaxUint256, signers[i].address, signers[i].address);
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawalAddress, (await withdrawalContract.balanceOf(signers[i].address)).sub(beforeWithdrawalBalance));
             await delay(50);
-            
+
             withdrawValues_1.push(userWithdrawValue);
             withdrawalAddresses_1.push(withdrawalAddress);
 

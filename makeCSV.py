@@ -15,7 +15,7 @@ for line in f_in:
         line = line[:-1] + " " + str(cnt1) + " " + str(cnt2) + "\n"
         cnt1 = 0
         cnt2 = 0
-
+        
     line = line.replace("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", "wMatic")
     line = line.replace("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", "wEth")
     line = line.replace("0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7", "ghst")
