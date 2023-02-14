@@ -537,9 +537,9 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                 _swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
-            if(newFloatBalance > targetBalance*_floatRatio){
-                require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio), "Deposit into Strategy Failed");
-            } 
+            if(newFloatBalance > targetBalance*_floatRatio / 100000){
+                require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio/100000), "Deposit into Strategy Failed");
+            }
         }
         
         lastRebalanced = block.timestamp;

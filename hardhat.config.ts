@@ -6,6 +6,9 @@ import "hardhat-contract-sizer";
 dotenv.config();
 
 const config: HardhatUserConfig = {
+  mocha: {
+    timeout: 100000000
+  },
   solidity: {
     compilers: [
       {
@@ -13,7 +16,8 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 400,
+            // runs: 400,
+            runs: 1
           },
         },
       },
@@ -28,7 +32,7 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       accounts: {
-        count: 20,
+        count: 301,
         mnemonic: "test test test test test test test test test test test junk",
       },
       // chainId: 1337,
