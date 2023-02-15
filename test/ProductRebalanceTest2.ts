@@ -237,7 +237,7 @@ describe("rebalance test 2",async () => {
         let depositValues_1 = [];
         let depositAddresses_1 = []
 
-        for (let i=2; i<signers.length; i++){
+        for (let i=1; i<signers.length; i++){
             let rand = Math.floor(Math.random() * 3);
             let depositAddress = depositChoices[rand];
             let depositContract = depositContracts[rand];
@@ -279,7 +279,7 @@ describe("rebalance test 2",async () => {
         let withdrawalAddresses_1 = []
         let productWithdrawShareBalance = await product.totalSupply();
 
-        for (let i=2; i<signers.length - 10; i++) {
+        for (let i=1; i<signers.length; i++) {
             let rand = Math.floor(Math.random() * 3);
             let withdrawalAddress = withdrawalChoices[rand];
             let withdrawalContract = withdrawalContracts[rand];
@@ -317,7 +317,7 @@ describe("rebalance test 2",async () => {
         let depositValues_2 = [];
         let depositAddresses_2 = []
 
-        for (let i=2; i<signers.length; i++){
+        for (let i=1; i<signers.length; i++){
             let rand = Math.floor(Math.random() * 3);
             let depositAddress = depositChoices[rand];
             let depositContract = depositContracts[rand];
@@ -352,7 +352,7 @@ describe("rebalance test 2",async () => {
         let withdrawalAddresses_2 = []
         productWithdrawShareBalance = await product.totalSupply();
 
-        for (let i=2; i<signers.length; i++) {
+        for (let i=1; i<signers.length; i++) {
             let rand = Math.floor(Math.random() * 3);
             let withdrawalAddress = withdrawalChoices[rand];
             let withdrawalContract = withdrawalContracts[rand];
@@ -386,39 +386,57 @@ describe("rebalance test 2",async () => {
             console.log(assetAddresses[i], ",", (await product.assetBalance(assetAddresses[i])).toString(), ",", (await product.assetValue(assetAddresses[i])).toString(), ",", (await usdPriceModule.getAssetUsdPrice(assetAddresses[i])).toString());
         }
 
-        ////////////////////////////////////////////////////////////////////////////////////////
-        //////////////////////////////////////// report ////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////////////
+        ////////////////////////////////////// report ////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////////////
 
-        // console.log("users deposit value vs withdraw value");
-        // for (let i=2; i<signers.length; i++) {
-        //     console.log('*');
-        //     console.log('signer[', i, '] deposit value: ', (depositValues_1[i-2]).add(depositValues_2[i-2]));
-        //     if(withdrawValues_1[i-2] == undefined) console.log('signer[', i, '] withdraw value: ', withdrawValues_2[i-2]);
-        //     else console.log('signer[', i, '] withdraw value: ', (withdrawValues_1[i-2]).add(withdrawValues_2[i-2]));
-        // }
+        console.log("users deposit value vs withdraw value");
+        for (let i=2; i<signers.length; i++) {
+            console.log('*');
+            console.log('signer[', i, '] deposit value: ', (depositValues_1[i-2]).add(depositValues_2[i-2]));
+            if(withdrawValues_1[i-2] == undefined) console.log('signer[', i, '] withdraw value: ', withdrawValues_2[i-2]);
+            else console.log('signer[', i, '] withdraw value: ', (withdrawValues_1[i-2]).add(withdrawValues_2[i-2]));
+        }
 
-        // console.log("-------------------------------------------------------------------------------");
+        console.log("-------------------------------------------------------------------------------");
 
-        // console.log('final product status is ...');
-        // console.log("before activation portfolio value: ", productInitialPortfolioValue);
-        // console.log("after reblance portfolio value: ", await product.portfolioValue());
-        // console.log('*');
-        // console.log("wmatic value: ", await product.assetValue(wmaticAddress));
-        // console.log("weth value: ", await product.assetValue(wethAddress));
-        // console.log("usdc value: ", await product.assetValue(usdcAddress));
-        // console.log("quick value: ", await product.assetValue(quickAddress));
-        // console.log("ghst value: ", await product.assetValue(ghstAddress));
-        // console.log('*');
-        // console.log("wmatic balance: ", await product.assetBalance(wmaticAddress));
-        // console.log("weth balance: ", await product.assetBalance(wethAddress));
-        // console.log("usdc balance: ", await product.assetBalance(usdcAddress));
-        // console.log("quick balance: ", await product.assetBalance(quickAddress));
-        // console.log("ghst balance: ", await product.assetBalance(ghstAddress));
+        console.log('final product status is ...');
+        console.log("before activation portfolio value: ", productInitialPortfolioValue);
+        console.log("after reblance portfolio value: ", await product.portfolioValue());
+        console.log('*');
+        console.log("wmatic value: ", await product.assetValue(wmaticAddress));
+        console.log("weth value: ", await product.assetValue(wethAddress));
+        console.log("usdc value: ", await product.assetValue(usdcAddress));
+        console.log("quick value: ", await product.assetValue(quickAddress));
+        console.log("ghst value: ", await product.assetValue(ghstAddress));
+        console.log('*');
+        console.log("wmatic balance: ", await product.assetBalance(wmaticAddress));
+        console.log("weth balance: ", await product.assetBalance(wethAddress));
+        console.log("usdc balance: ", await product.assetBalance(usdcAddress));
+        console.log("quick balance: ", await product.assetBalance(quickAddress));
+        console.log("ghst balance: ", await product.assetBalance(ghstAddress));
         
-        // console.log("-------------------------------------------------------------------------------")
+        console.log("-------------------------------------------------------------------------------")
 
-        // console.log("dac share balance: ", await product.balanceOf(signers[0].address));
-        // console.log("dac share value: ", await product.shareValue(await product.balanceOf(signers[0].address)));
+        console.log("dac deposit value: ", dacInitialDepositValue);
+        console.log("dac share balance: ", await product.balanceOf(signers[0].address));
+        console.log("dac share value: ", await product.shareValue(await product.balanceOf(signers[0].address)));
+
+        console.log("-----------------------------------------------------------------------------------")
+
+        let rand = Math.floor(Math.random() * 3);
+        let withdrawalAddress = withdrawalChoices[rand];
+        let withdrawalContract = withdrawalContracts[rand];
+        let beforeDacWithdraw = await withdrawalContract.balanceOf(signers[0].address);
+
+        await product.deactivateProduct();
+        await product.withdraw(withdrawalAddress, ethers.constants.MaxUint256, signers[0].address, signers[0].address);
+
+        let dacWithdrawalValue = (await withdrawalContract.balanceOf(signers[0].address)).sub(beforeDacWithdraw)
+
+        console.log("dac real withdraw value: ", (await usdPriceModule.getAssetUsdValue(withdrawalAddress, dacWithdrawalValue)).toString());
+        console.log("product portfolio vlaue: ", (await product.portfolioValue()).toString());
+
     })
 })
+
