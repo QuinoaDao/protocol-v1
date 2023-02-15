@@ -56,7 +56,7 @@ const config: HardhatUserConfig = {
       },
     },
     mumbai : {
-      url: "https://rpc-mumbai.maticvigil.com/",
+      url: process.env.ALCHEMY_MUMBAI_URL || "https://rpc-mumbai.maticvigil.com/",
       accounts: [process.env.TEST_ACC1 || "" , process.env.TEST_ACC2 || ""]
     },
   },

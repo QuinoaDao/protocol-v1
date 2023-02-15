@@ -34,5 +34,8 @@
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "dotenv": "^16.0.3"
+  },
+  "scripts": {
+    "deployWithMumbai": "yarn hardhat node & yarn hardhat run --network mumbai scripts/deployWithMumbai.ts"
   }
 }
