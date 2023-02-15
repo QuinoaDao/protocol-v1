@@ -18,6 +18,10 @@ contract WhitelistRegistry is Ownable {
         _productExists[product] = false;
     }
 
+    function checkProduct(address product) external view returns(bool){
+        return _productExists[product];
+    }
+    
     function addWhitelist(address product, address user) external onlyOwner {
         require(_productExists[product], "The product has no whitelist");
         _whitelistRegistry[product][user] = true;
