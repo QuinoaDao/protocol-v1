@@ -5,28 +5,34 @@ import "hardhat-contract-sizer";
 
 dotenv.config();
 
+const DEFAULT_OPTIMIZER = {
+  version: "0.8.17",
+  settings: {
+    optimizer: {
+      enabled: true,
+      runs: 1000000
+    },
+  },
+}
+
+const PRODUCT_OPTIMIZER = {
+  version: "0.8.17",
+  settings: {
+    optimizer: {
+      enabled: true,
+      runs: 300
+    },
+  },
+}
+
 const config: HardhatUserConfig = {
   mocha: {
     timeout: 100000000
   },
   solidity: {
-    compilers: [
-      {
-        version: "0.8.17",
-        settings: {
-          optimizer: {
-            enabled: true,
-            // runs: 400,
-            runs: 1
-          },
-        },
-      },
-    ],
+    compilers: [DEFAULT_OPTIMIZER],
     overrides: {
-      "contracts/SwapModule.sol": {
-        version: "0.8.17",
-        settings: {},
-      },
+      "contracts/Product.sol": PRODUCT_OPTIMIZER,
     },
   },
   networks: {
