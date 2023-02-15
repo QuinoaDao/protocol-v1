@@ -10,6 +10,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 
+interface IWhiteListRegistry {
+    function checkWhitelist(address product, address user) external view returns(bool);
+}
+
 contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     using Math for uint256;
 
@@ -58,9 +62,15 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         require(_msgSender()==_dacAddress, "Only dac can access");
         _;
     }
+
+    modifier onlyWhitelist {
+        require((_whitelistRegistry.checkWhitelist(address(this), _msgSender())) || ( _msgSender()==_dacAddress), "You're not in whitelist");
+        _;
+    }
         
     constructor(
         ProductInfo memory productInfo_,
+        address whitelistRegistry_,
         address keeperRegistry_, 
         address usdPriceModule_, 
         address[] memory assetAddresses_, 
@@ -359,7 +369,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         emit UpdateWithdrawalQueue(_msgSender(), newWithdrawalQueue, block.timestamp);
     }
 
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external override returns (uint256) {
+    function deposit(address assetAddress, uint256 assetAmount, address receiver) external override onlyWhitelist returns (uint256) {
         // Dac cannot deposit when product is in deactivation state
         require((_msgSender() == _dacAddress) || isActive, "Deposit is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
