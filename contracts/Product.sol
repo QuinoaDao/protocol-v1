@@ -18,7 +18,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     address[] public withdrawalQueue;
     uint256 lastRebalanced;
 
-    
     ///@notice All ratios use per 100000. 
     ///ex. 100000 = 100%, 10000 = 10%, 1000 = 1%, 100 = 0.1%
     uint256 private _floatRatio;
@@ -41,7 +40,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         uint256 time
     );
 
-     event DeactivateProduct(
+    event DeactivateProduct(
         address indexed caller,
         uint256 time
     );
@@ -329,7 +328,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
         require(withdrawalQueue.length != 0, "No withdrawal Queue");
 
-        // require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18), "Dac's deposit balance is too lower");
+        require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18), "Dac's deposit balance is too lower");
 
         isActive = true;
 
@@ -382,17 +381,16 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         if(shareAmount == type(uint256).max) {
             shareAmount = balanceOf(owner);
         }
-
         require(shareAmount <= balanceOf(owner), "Too much withdrawal");
 
         uint256 withdrawalAmount = _valueToAssets(assetAddress, shareValue(shareAmount));
         require(withdrawalAmount > 0, "short of withdrawal");
-        
+
         // Note
         // If the product cannot afford the user's withdrawal amount from the float of the token that user wants to withdraw, 
         // it should withdraw tokens from the another token float or strategy to cover it.
         if (_assetBalanceOf(assetAddress, address(this)) < withdrawalAmount) {
-            
+
             for (uint i=0; i<assets.length; i++){ // Withdraw tokens from the another float
                 address floatAssetAddress = assets[i].assetAddress;
                 
@@ -406,7 +404,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                 }
 
                 uint256 needAmount = _estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress);
-                
                 if(needAmount > _assetBalanceOf(floatAssetAddress, address(this))) {
                     needAmount =  _assetBalanceOf(floatAssetAddress, address(this));
 
@@ -442,7 +439,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                     if(needAmount == 0) {
                         continue;
                     }
-
+                    
                     _redeemFromStrategy(withdrawalQueue[i], needAmount);
                 }
                 else { 
@@ -454,11 +451,12 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                         if(_estimateSwapOutputAmount(needAmount, strategyAssetAddress, assetAddress) == 0) {
                             continue;
                         }
-
+                        _redeemFromStrategy(withdrawalQueue[i], needAmount);
                         IERC20(strategyAssetAddress).approve(address(router), needAmount);
                         _swapExactInput(needAmount, strategyAssetAddress, assetAddress, address(this));
                     }
                     else {
+                        _redeemFromStrategy(withdrawalQueue[i], needAmount);
                         IERC20(strategyAssetAddress).approve(address(router), needAmount);
                         _swapExactOutput(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress, address(this));
                     }
@@ -500,7 +498,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 continue;
             }
-
+            
             uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); 
             uint256 currentBalance = assetBalance(assets[i].assetAddress); 
 
@@ -521,10 +519,10 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
         // BUY
         for(uint i=0; i < assets.length; i++) {
-            if(assets[i].assetAddress == _underlyingAssetAddress) { 
+            if(assets[i].assetAddress == _underlyingAssetAddress) {
                 continue;
             }
-
+            
             uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * currentPortfolioValue) / 100000)); 
             uint256 currentBalance = assetBalance(assets[i].assetAddress);
             IStrategy assetStrategy = IStrategy(strategies[assets[i].assetAddress]);
@@ -537,9 +535,9 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                 _swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
-            if(newFloatBalance > targetBalance*_floatRatio){
-                require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio), "Deposit into Strategy Failed");
-            } 
+            if(newFloatBalance > targetBalance*_floatRatio / 100000){
+                require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio/100000), "Deposit into Strategy Failed");
+            }
         }
         
         lastRebalanced = block.timestamp;

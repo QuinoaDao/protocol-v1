@@ -39,7 +39,6 @@ contract SwapModule {
     }
 
     function _estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) internal view returns (uint256) { 
-
         if(amountIn == 0){
             return 0;
         }
