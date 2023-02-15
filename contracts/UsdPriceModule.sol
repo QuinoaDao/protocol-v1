@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
 
+import "./IUsdPriceModule.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract UsdPriceModule is Ownable {
+contract UsdPriceModule is IUsdPriceModule, Ownable {
 
     mapping(address => address) private priceFeeds;
 
@@ -33,7 +34,7 @@ contract UsdPriceModule is Ownable {
     }
 
     ///@notice returns 18 decimals
-    function getAssetUsdPrice(address _asset) public view returns(uint256) {
+    function getAssetUsdPrice(address _asset) public view override returns(uint256) {
         require(priceFeeds[_asset] != address(0), "Unsupported token");
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeeds[_asset]);
         (, int price, , , ) = priceFeed.latestRoundData();
@@ -42,7 +43,7 @@ contract UsdPriceModule is Ownable {
     }
 
     ///@notice returns 18 decimals
-    function getAssetUsdValue(address _asset, uint256 _amount) public view returns(uint256) {
+    function getAssetUsdValue(address _asset, uint256 _amount) public view override returns(uint256) {
         uint256 assetPrice = getLatestPrice(_asset);
         uint256 assetDecimals = IERC20Metadata(_asset).decimals();
         if(assetDecimals < 10) { 
@@ -56,7 +57,7 @@ contract UsdPriceModule is Ownable {
         }
     }
 
-    function convertAssetBalance(address _asset, uint256 _value) public view returns(uint256) {
+    function convertAssetBalance(address _asset, uint256 _value) public view override returns(uint256) {
         uint256 targetPrice = getLatestPrice(_asset); // 8 decimal
         uint256 targetAssetDecimals = IERC20Metadata(_asset).decimals(); 
 

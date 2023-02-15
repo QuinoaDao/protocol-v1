@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import "./IProduct.sol";
 import "./IStrategy.sol";
-import "./UsdPriceModule.sol";
+import "./IUsdPriceModule.sol";
 import "./SwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -33,7 +33,8 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     address private _keeperRegistry;
     uint256 private rebalanceInterval;
 
-    UsdPriceModule private _usdPriceModule;
+    IUsdPriceModule private _usdPriceModule;
+    IWhiteListRegistry private _whitelistRegistry;
 
     event ActivateProduct(
         address indexed caller,
@@ -80,8 +81,11 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         _underlyingAssetAddress = productInfo_.underlyingAssetAddress;
         assets.push(AssetParams(_underlyingAssetAddress, 0, 0));
 
+        require(whitelistRegistry_ != address(0x0), "Invalid whitelist registry address");
+        _whitelistRegistry = IWhiteListRegistry(whitelistRegistry_);
+        
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
-        _usdPriceModule = UsdPriceModule(usdPriceModule_);
+        _usdPriceModule = IUsdPriceModule(usdPriceModule_);
 
         require(keeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
         _keeperRegistry = keeperRegistry_;
@@ -137,7 +141,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
         require(newUsdPriceModule != address(0x0), "Invalid USD price module");
         require(newUsdPriceModule != address(_usdPriceModule), "Duplicated Vaule input");
-        _usdPriceModule = UsdPriceModule(newUsdPriceModule);
+        _usdPriceModule = IUsdPriceModule(newUsdPriceModule);
     }
 
     ///@notice Add one underlying asset to be handled by the product. 
