@@ -15,7 +15,7 @@ contract WhitelistRegistry is Ownable {
 
     function deleteProduct(address product) external onlyOwner {
         require(_productExists[product], "The product has no whitelist");
-        _productExists[product] = false;
+        delete _productExists[product];
     }
 
     function checkProduct(address product) external view returns(bool){
@@ -29,7 +29,7 @@ contract WhitelistRegistry is Ownable {
 
     function deleteWhitelist(address product, address user) external onlyOwner {
         require(_productExists[product], "The product has no whitelist");
-        _whitelistRegistry[product][user] = false;
+        delete _whitelistRegistry[product][user];
     }
 
     function addMultipleWhitelists(address product, address[] memory users) external onlyOwner {
@@ -46,7 +46,7 @@ contract WhitelistRegistry is Ownable {
 
         uint256 usersLength = users.length;
         for(uint256 i=0; i<usersLength; i++) {
-            _whitelistRegistry[product][users[i]] = false;
+            delete _whitelistRegistry[product][users[i]];
         }
     }
 
