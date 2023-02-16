@@ -5,7 +5,7 @@ import { expect } from "chai";
 describe("whitelistRegistry contract test", async () => {
     it ("ownership test",async () => {
         const signers = await ethers.getSigners();
-        const { product, whitelistRegistry } = await utils.deployContracts(signers[0], signers[1]);
+        const { product, whitelistRegistry } = await utils.deployContracts(signers[0]);
 
         expect(whitelistRegistry.connect(signers[32]).addProduct(product.address)).revertedWith("Ownable: caller is not the owner");
         expect(whitelistRegistry.connect(signers[32]).deleteProduct(product.address)).revertedWith("Ownable: caller is not the owner");
@@ -22,7 +22,7 @@ describe("whitelistRegistry contract test", async () => {
 
     it("add product in whitelist registry", async () => {
         const signers = await ethers.getSigners();
-        const { product, whitelistRegistry } = await utils.deployContracts(signers[0], signers[1]);
+        const { product, whitelistRegistry } = await utils.deployContracts(signers[0]);
 
         await whitelistRegistry.addProduct(product.address);
         expect(whitelistRegistry.addProduct(product.address)).revertedWith("The product already has whitelist");
@@ -31,7 +31,7 @@ describe("whitelistRegistry contract test", async () => {
 
     it("delete product in whitelist registry",async () => {
         const signers = await ethers.getSigners();
-        const { product, whitelistRegistry } = await utils.deployContracts(signers[0], signers[1]);
+        const { product, whitelistRegistry } = await utils.deployContracts(signers[0]);
 
         expect(await whitelistRegistry.checkProduct(product.address)).equal(false);
         expect(whitelistRegistry.deleteProduct(product.address)).revertedWith("The product has no whitelist");
@@ -46,7 +46,7 @@ describe("whitelistRegistry contract test", async () => {
 
     it("add user in whitelist",async () => {
         const signers = await ethers.getSigners();
-        const { product, whitelistRegistry } = await utils.deployContracts(signers[0], signers[1]);
+        const { product, whitelistRegistry } = await utils.deployContracts(signers[0]);
 
         expect(whitelistRegistry.addWhitelist(product.address, signers[0].address)).revertedWith("The product has no whitelist");
         await whitelistRegistry.addProduct(product.address);
@@ -76,7 +76,7 @@ describe("whitelistRegistry contract test", async () => {
 
     it("delete user in whitelist",async () => {
         const signers = await ethers.getSigners();
-        const { product, whitelistRegistry } = await utils.deployContracts(signers[0], signers[1]);
+        const { product, whitelistRegistry } = await utils.deployContracts(signers[0]);
         
         await whitelistRegistry.addProduct(product.address);
 

@@ -1,13 +1,17 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Contract } from "ethers";
-import { Product, Strategy, UsdPriceModule, ERC20, contracts } from "../typechain-types";
+import { Product, Strategy, UsdPriceModule, ERC20, contracts, WhitelistRegistry } from "../typechain-types";
 
 import wMaticAbi from "../abis/wMaticABI.json";
 import usdcAbi from "../abis/usdcABI.json";
 import wEthAbi from "../abis/wEthABI.json";
+import quickAbi from "../abis/quickABI.json";
+import ghstAbi from "../abis/ghstABI.json";
 import quickSwapAbi from "../abis/quickSwapABI.json";
 import { parseEther, parseUnits } from "ethers/lib/utils";
+
+export {wMaticAbi, usdcAbi, wEthAbi, quickAbi, ghstAbi, quickSwapAbi};
 
 export const quickSwapFactory = "0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32";
 export const quickSwapRouter = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff";
@@ -31,7 +35,7 @@ export function delay(ms: number) {
     return new Promise( resolve => setTimeout(resolve, ms) );
 }
 
-export async function deployContracts(dac: SignerWithAddress, nonDac: SignerWithAddress) {
+export async function deployContracts(dac: SignerWithAddress) {
     // Deploy the contract to the test network
     const Product = await ethers.getContractFactory("Product");
     const Strategy = await ethers.getContractFactory("Strategy");
@@ -78,6 +82,28 @@ export async function deployContracts(dac: SignerWithAddress, nonDac: SignerWith
       usdPriceModule,
       whitelistRegistry
     };
+}
+
+export async function depolyBadStrategy(dac: SignerWithAddress, nonDac: SignerWithAddress, product: Product) {
+    const Strategy = await ethers.getContractFactory("Strategy");
+
+    // non dac member depoly bad strategy 1
+    const nonDacStrategy = await Strategy.connect(nonDac).deploy(nonDac.address, wmaticAddress, product.address);
+    await nonDacStrategy.deployed();
+
+    // bad strategy 2 uses uni token that product doesn't use
+    const diffAssetStrategy = await Strategy.deploy(dac.address, uniAddress, product.address);
+    await diffAssetStrategy.deployed();
+
+    // bad strategy 3 is duplicated strategy with wmaticStrategy
+    const dupStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address)
+    await dupStrategy.deployed();
+
+    return {
+        nonDacStrategy,
+        diffAssetStrategy,
+        dupStrategy
+    }
 }
 
 export async function setUsdPriceModule(dac: SignerWithAddress, usdPriceModule: UsdPriceModule) {
@@ -149,10 +175,84 @@ export async function setProductWithoutQuickAndGhst(
     ]);
 }
 
+export async function getTokens(dac: SignerWithAddress, nonDac: SignerWithAddress) {
+    const wMaticContract = new ethers.Contract(wmaticAddress, wMaticAbi, dac);
+    const wEthContract = new ethers.Contract(wethAddress, wEthAbi, dac);
+    const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, dac);
+    const quickContract = new ethers.Contract(quickAddress, quickAbi, dac);
+    const ghstContract = new ethers.Contract(ghstAddress, ghstAbi, dac);
+  
+    // dac
+    await wMaticContract.deposit({
+      from: dac.address,
+      value: ethers.utils.parseEther("1000"),
+      gasLimit: 59999,
+    });
+  
+    // nonDac
+    await wMaticContract.connect(nonDac).deposit({
+      from: nonDac.address,
+      value: ethers.utils.parseEther("1000"),
+      gasLimit: 59999,
+    });
+
+  
+    return {
+      wMaticContract,
+      wEthContract,
+      usdcContract,
+      quickContract,
+      ghstContract
+    };
+}
+
+export async function swapTokens(
+    dac: SignerWithAddress, 
+    nonDac: SignerWithAddress, 
+    wMaticContract: Contract, 
+    wEthContract: Contract, 
+    usdcContract: Contract
+) {
+    const swapContract = new ethers.Contract(quickSwapRouter, quickSwapAbi, dac);
+
+    // Dac
+    let amountOut = parseUnits("3", 17);
+    let path = [wmaticAddress, wethAddress];
+    let amountIn = parseEther("450");
+
+    await wMaticContract.approve(quickSwapRouter, amountIn);
+    await swapContract.swapTokensForExactTokens(amountOut, amountIn, path, dac.address, Date.now() + 10000*60, {gasLimit: 251234});
+
+    amountOut = parseUnits("300", 6);
+    path = [wmaticAddress, usdcAddress];
+    amountIn = parseEther("350");
+    await wMaticContract.approve(quickSwapRouter, amountIn);
+    await swapContract.swapTokensForExactTokens(amountOut, amountIn, path, dac.address, Date.now() + 10000*60, {gasLimit: 251234});
+
+    // nonDac
+    amountOut = parseUnits("3", 17);
+    path = [wmaticAddress, wethAddress];
+    amountIn = parseEther("450");
+
+    await wMaticContract.connect(nonDac).approve(quickSwapRouter, amountIn);
+     await swapContract.connect(nonDac).swapTokensForExactTokens(amountOut, amountIn, path, nonDac.address, Date.now() + 10000*60, {gasLimit: 251234});
+
+    amountOut = parseUnits("300", 6);
+    path = [wmaticAddress, usdcAddress];
+    amountIn = parseEther("350");
+    await wMaticContract.connect(nonDac).approve(quickSwapRouter, amountIn);
+    await swapContract.connect(nonDac).swapTokensForExactTokens(amountOut, amountIn, path, nonDac.address, Date.now() + 10000*60, {gasLimit: 251234});
+ 
+
+    return {swapContract};
+}
+
 export async function distributionTokens(signers: SignerWithAddress[]) {
     const wMaticContract = new ethers.Contract(wmaticAddress, wMaticAbi, signers[0]);
     const wEthContract = new ethers.Contract(wethAddress, wEthAbi, signers[0]);
     const usdcContract = new ethers.Contract(usdcAddress, usdcAbi, signers[0]);
+    const quickContract = new ethers.Contract(quickAddress, quickAbi, signers[0]);
+    const ghstContract = new ethers.Contract(ghstAddress, ghstAbi, signers[0]);
     const swapContract = new ethers.Contract(quickSwapRouter, quickSwapAbi, signers[0]);
 
     let cnt = 0;
@@ -175,7 +275,7 @@ export async function distributionTokens(signers: SignerWithAddress[]) {
     
         await wMaticContract.connect(val).approve(quickSwapRouter, amountIn);
         await swapContract.connect(val).swapTokensForExactTokens(amountOut, amountIn, path, val.address, Date.now() + 10000*60, {gasLimit: 251234});
-    
+
         // usdc
         amountOut = parseUnits("300", 6);
         path = [wmaticAddress, usdcAddress];
@@ -192,6 +292,8 @@ export async function distributionTokens(signers: SignerWithAddress[]) {
         wMaticContract,
         wEthContract,
         usdcContract,
+        quickContract,
+        ghstContract,
         swapContract
       };
 }
@@ -202,3 +304,14 @@ export async function activateProduct(dac: SignerWithAddress, product: Product, 
     await product.activateProduct();
 }
 
+export async function setWhitelists(users: SignerWithAddress[], whitelistRegistry: WhitelistRegistry, productAddress: string) { 
+    let multipleUsers = []
+    for(let i=0; i<users.length; i++){
+        multipleUsers.push(users[i].address);
+    }
+
+    if(await whitelistRegistry.checkProduct(productAddress) == false){
+        await whitelistRegistry.addProduct(productAddress);
+    }
+    await whitelistRegistry.addMultipleWhitelists(productAddress, multipleUsers);
+}
