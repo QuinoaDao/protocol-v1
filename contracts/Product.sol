@@ -3,12 +3,16 @@ pragma solidity ^0.8.17;
 
 import "./IProduct.sol";
 import "./IStrategy.sol";
-import "./UsdPriceModule.sol";
+import "./IUsdPriceModule.sol";
 import "./SwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
+
+interface IWhiteListRegistry {
+    function checkWhitelist(address product, address user) external view returns(bool);
+}
 
 contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     using Math for uint256;
@@ -33,7 +37,8 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     address private _keeperRegistry;
     uint256 private rebalanceInterval;
 
-    UsdPriceModule private _usdPriceModule;
+    IUsdPriceModule private _usdPriceModule;
+    IWhiteListRegistry private _whitelistRegistry;
 
     event ActivateProduct(
         address indexed caller,
@@ -57,9 +62,15 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         require(_msgSender()==_dacAddress, "Only dac can access");
         _;
     }
+
+    modifier onlyWhitelist {
+        require((_whitelistRegistry.checkWhitelist(address(this), _msgSender())) || ( _msgSender()==_dacAddress), "You're not in whitelist");
+        _;
+    }
         
     constructor(
         ProductInfo memory productInfo_,
+        address whitelistRegistry_,
         address keeperRegistry_, 
         address usdPriceModule_, 
         address[] memory assetAddresses_, 
@@ -80,8 +91,11 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         _underlyingAssetAddress = productInfo_.underlyingAssetAddress;
         assets.push(AssetParams(_underlyingAssetAddress, 0, 0));
 
+        require(whitelistRegistry_ != address(0x0), "Invalid whitelist registry address");
+        _whitelistRegistry = IWhiteListRegistry(whitelistRegistry_);
+        
         require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
-        _usdPriceModule = UsdPriceModule(usdPriceModule_);
+        _usdPriceModule = IUsdPriceModule(usdPriceModule_);
 
         require(keeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
         _keeperRegistry = keeperRegistry_;
@@ -134,12 +148,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         return assets;
     }
 
-    function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
-        require(newUsdPriceModule != address(0x0), "Invalid USD price module");
-        require(newUsdPriceModule != address(_usdPriceModule), "Duplicated Vaule input");
-        _usdPriceModule = UsdPriceModule(newUsdPriceModule);
-    }
-
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
     function addAsset(address newAssetAddress) external onlyDac {
@@ -175,6 +183,19 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         }
         require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
     }
+
+    function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
+        require(newUsdPriceModule != address(0x0), "Invalid USD price module");
+        require(newUsdPriceModule != address(_usdPriceModule), "Duplicated USD price module");
+        _usdPriceModule = IUsdPriceModule(newUsdPriceModule);
+    }
+
+    function updateWhitelistRegistry(address newWhitelistRegistry) external onlyDac {
+        require(newWhitelistRegistry != address(0x0), "Invalid whitelist registry");
+        require(newWhitelistRegistry != address(_whitelistRegistry), "Duplicated whitelist registry");
+        _whitelistRegistry = IWhiteListRegistry(newWhitelistRegistry);
+    }
+
 
     function updateKeeperRegistryAddress(address newKeeperRegistry_) external onlyDac {
         require(newKeeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
@@ -355,7 +376,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         emit UpdateWithdrawalQueue(_msgSender(), newWithdrawalQueue, block.timestamp);
     }
 
-    function deposit(address assetAddress, uint256 assetAmount, address receiver) external override returns (uint256) {
+    function deposit(address assetAddress, uint256 assetAmount, address receiver) external override onlyWhitelist returns (uint256) {
         // Dac cannot deposit when product is in deactivation state
         require((_msgSender() == _dacAddress) || isActive, "Deposit is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
