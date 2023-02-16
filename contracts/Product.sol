@@ -148,12 +148,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         return assets;
     }
 
-    function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
-        require(newUsdPriceModule != address(0x0), "Invalid USD price module");
-        require(newUsdPriceModule != address(_usdPriceModule), "Duplicated Vaule input");
-        _usdPriceModule = IUsdPriceModule(newUsdPriceModule);
-    }
-
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
     function addAsset(address newAssetAddress) external onlyDac {
@@ -189,6 +183,19 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         }
         require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
     }
+
+    function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
+        require(newUsdPriceModule != address(0x0), "Invalid USD price module");
+        require(newUsdPriceModule != address(_usdPriceModule), "Duplicated USD price module");
+        _usdPriceModule = IUsdPriceModule(newUsdPriceModule);
+    }
+
+    function updateWhitelistRegistry(address newWhitelistRegistry) external onlyDac {
+        require(newWhitelistRegistry != address(0x0), "Invalid whitelist registry");
+        require(newWhitelistRegistry != address(_whitelistRegistry), "Duplicated whitelist registry");
+        _whitelistRegistry = IWhiteListRegistry(newWhitelistRegistry);
+    }
+
 
     function updateKeeperRegistryAddress(address newKeeperRegistry_) external onlyDac {
         require(newKeeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
