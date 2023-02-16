@@ -1,5 +1,6 @@
 import * as utils from "./utils";
 import { ethers } from "hardhat";
+import { expect } from "chai";
 
 describe("rebalance 없는 버전 테스트",async () => {
     it('단순 deposit, withdraw',async () => {
@@ -66,6 +67,8 @@ describe("rebalance 없는 버전 테스트",async () => {
             let depositAddress = assetChoices_deposit[i];
             let depositContract = assetContracts_deposit[i];
             let depositBalance = await usdPriceModule.convertAssetBalance(depositAddress, assetValue_deposit[i]);
+
+            expect(product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address)).revertedWith("You're not in whitelist");
 
             await utils.delay(50);
             await utils.setWhitelists([signers[i]], whitelistRegistry, product.address);
