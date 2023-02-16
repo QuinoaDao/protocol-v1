@@ -20,7 +20,7 @@ const PRODUCT_OPTIMIZER = {
   settings: {
     optimizer: {
       enabled: true,
-      runs: 300
+      runs: 200
     },
   },
 }
