@@ -68,7 +68,7 @@ describe("scenario 3",async () => {
         // console.log(assetChoices_deposit);
         // console.log(assetValue_deposit);
 
-        for (let i=1; i<300; i++){
+        for (let i=1; i<301; i++){
             let depositAddress = assetChoices_deposit[i];
             let depositContract = assetContracts_deposit[i];
             let depositBalance = await usdPriceModule.convertAssetBalance(depositAddress, assetValue_deposit[i]);
@@ -113,7 +113,7 @@ describe("scenario 3",async () => {
         const assetContracts_withdraw = [wMaticContract];
         cnt = [100, 100, 100];
 
-        for(let i=0; i<301; i++) {
+        for(let i=0; i<300; i++) {
             let rand = Math.floor(Math.random() * 3);
             while(cnt[rand] == 0) {
                 rand = Math.floor(Math.random() * 3);

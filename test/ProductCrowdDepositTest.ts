@@ -49,9 +49,7 @@ describe("wMatic token deposit & random token withdraw test",async () => {
             await product.connect(signers[i]).deposit(utils.wmaticAddress, ethers.utils.parseEther("30"), signers[i].address);
             await product.connect(signers[i]).deposit(utils.wmaticAddress, ethers.utils.parseEther("30"), signers[i].address);
 
-            console.log("3?");
             expect(await product.balanceOf(signers[i].address)).equal(oneUserShareBalance);
-            console.log("3?");
 
             depositValues.push(oneUserDepositValue);
         }
