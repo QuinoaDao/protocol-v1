@@ -336,6 +336,22 @@ describe("random token deposit & random token withdraw test",async () => {
         console.log("-----------------------------------------------------------------------------------")
 
         console.log("dac deposit value: ", dacInitialDepositValue);
-        console.log("dac withdraw value: ", await product.shareValue(await product.balanceOf(signers[0].address)));
+        console.log("dac share value: ", await product.shareValue(await product.balanceOf(signers[0].address)));
+
+        console.log("-----------------------------------------------------------------------------------")
+
+        let rand = Math.floor(Math.random() * 3);
+        let withdrawalAddress = withdrawalChoices[rand];
+        let withdrawalContract = withdrawalContracts[rand];
+        let beforeDacWithdraw = await withdrawalContract.balanceOf(signers[0].address);
+
+        await product.deactivateProduct();
+        await product.withdraw(withdrawalAddress, ethers.constants.MaxUint256, signers[0].address, signers[0].address);
+
+        let dacWithdrawalValue = (await withdrawalContract.balanceOf(signers[0].address)).sub(beforeDacWithdraw)
+
+        console.log("dac real withdraw value: ", (await usdPriceModule.getAssetUsdValue(withdrawalAddress, dacWithdrawalValue)).toString());
+        console.log("product portfolio vlaue: ", (await product.portfolioValue()).toString());
+
     })
 })
