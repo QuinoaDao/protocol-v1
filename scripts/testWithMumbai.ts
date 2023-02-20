@@ -67,73 +67,73 @@ async function main(){
     /**
      * 1. 토큰 pair 생성
      */
-    // await (await swapFactoryContract.createPair(usdcAddress, wmaticAddress)).wait();
-    // await (await swapFactoryContract.createPair(usdcAddress, wethAddress)).wait();
-    // await (await swapFactoryContract.createPair(usdcAddress, linkAddress)).wait();
-    // await (await swapFactoryContract.createPair(wmaticAddress, wethAddress)).wait();
-    // await (await swapFactoryContract.createPair(wmaticAddress, linkAddress)).wait();
-    // await (await swapFactoryContract.createPair(wethAddress, linkAddress)).wait();
+    await (await swapFactoryContract.createPair(usdcAddress, wmaticAddress)).wait();
+    await (await swapFactoryContract.createPair(usdcAddress, wethAddress)).wait();
+    await (await swapFactoryContract.createPair(usdcAddress, linkAddress)).wait();
+    await (await swapFactoryContract.createPair(wmaticAddress, wethAddress)).wait();
+    await (await swapFactoryContract.createPair(wmaticAddress, linkAddress)).wait();
+    await (await swapFactoryContract.createPair(wethAddress, linkAddress)).wait();
 
     /**
      * 2. liquidity 추가
      */
-    // await (await wethContract.mint(dac.address, parseEther("10000000000"))).wait();
-    // await (await wmaticContract.mint(dac.address, parseEther("10000000000"))).wait();
-    // await (await linkContract.mint(dac.address, parseEther("10000000000"))).wait();
-    // await (await usdcContract.mint(dac.address, parseUnits("10000000000", 6))).wait();
+    await (await wethContract.mint(dac.address, parseEther("10000000000"))).wait();
+    await (await wmaticContract.mint(dac.address, parseEther("10000000000"))).wait();
+    await (await linkContract.mint(dac.address, parseEther("10000000000"))).wait();
+    await (await usdcContract.mint(dac.address, parseUnits("10000000000", 6))).wait();
 
-    // await (await wethContract.approve(quickSwapRouter, parseEther("10000000000"))).wait();
-    // await (await wmaticContract.approve(quickSwapRouter, parseEther("10000000000"))).wait();
-    // await (await linkContract.approve(quickSwapRouter,  parseEther("10000000000"))).wait();
-    // await (await usdcContract.approve(quickSwapRouter, parseUnits("10000000000", 6))).wait();
+    await (await wethContract.approve(quickSwapRouter, parseEther("10000000000"))).wait();
+    await (await wmaticContract.approve(quickSwapRouter, parseEther("10000000000"))).wait();
+    await (await linkContract.approve(quickSwapRouter,  parseEther("10000000000"))).wait();
+    await (await usdcContract.approve(quickSwapRouter, parseUnits("10000000000", 6))).wait();
     
-    // console.log("wmatic allowance: ", (await wmaticContract.allowance(dac.address, quickSwapRouter)).toString());
-    // console.log("weth allowance: ", (await wethContract.allowance(dac.address, quickSwapRouter)).toString());
-    // console.log("link allowance: ", (await linkContract.allowance(dac.address, quickSwapRouter)).toString());
-    // console.log("usdc allowance: ", (await usdcContract.allowance(dac.address, quickSwapRouter)).toString());
+    console.log("wmatic allowance: ", (await wmaticContract.allowance(dac.address, quickSwapRouter)).toString());
+    console.log("weth allowance: ", (await wethContract.allowance(dac.address, quickSwapRouter)).toString());
+    console.log("link allowance: ", (await linkContract.allowance(dac.address, quickSwapRouter)).toString());
+    console.log("usdc allowance: ", (await usdcContract.allowance(dac.address, quickSwapRouter)).toString());
 
-    // let amountADesired = parseEther("87");
-    // let amountBDesired = parseUnits("100000", 18)
-    // let deadline = Date.now() + 10000*60;
+    let amountADesired = parseEther("87");
+    let amountBDesired = parseUnits("100000", 18)
+    let deadline = Date.now() + 10000*60;
 
-    // await (await swapRouterContract.connect(dac).addLiquidity(
-    //     wethAddress, 
-    //     wmaticAddress, 
-    //     amountADesired,
-    //     amountBDesired,
-    //     amountADesired,
-    //     amountBDesired,
-    //     dac.address,
-    //     deadline,
-    // )).wait();
+    await (await swapRouterContract.connect(dac).addLiquidity(
+        wethAddress, 
+        wmaticAddress, 
+        amountADesired,
+        amountBDesired,
+        amountADesired,
+        amountBDesired,
+        dac.address,
+        deadline,
+    )).wait();
 
     /**
      * 3. token deposit 수행
      */
-    // console.log("deposit wmatic");
-    // await (await wmaticContract.approve(product.address, parseEther("100"))).wait();
-    // await (await product.deposit(wmaticAddress, parseEther("100"), dac.address)).wait();
-    // console.log("success!");
-    // console.log("deposit weth");
-    // await (await wethContract.approve(product.address, parseEther("10"))).wait();
-    // await (await product.deposit(wethAddress, parseEther("10"), dac.address)).wait();
-    // console.log("success!");
-    // console.log("deposit usdc");
-    // await (await usdcContract.approve(product.address, parseUnits("100", 6))).wait();
-    // await (await product.deposit(usdcAddress, parseUnits("100", 6), dac.address)).wait();
-    // console.log("success!");
-    // console.log("deposit link");
-    // await (await linkContract.approve(product.address, parseEther("1000"))).wait();
-    // await (await product.deposit(linkAddress, parseEther("1000"), dac.address)).wait();
-    // console.log("success!");
+    console.log("deposit wmatic");
+    await (await wmaticContract.approve(product.address, parseEther("100"))).wait();
+    await (await product.deposit(wmaticAddress, parseEther("100"), dac.address)).wait();
+    console.log("success!");
+    console.log("deposit weth");
+    await (await wethContract.approve(product.address, parseEther("10"))).wait();
+    await (await product.deposit(wethAddress, parseEther("10"), dac.address)).wait();
+    console.log("success!");
+    console.log("deposit usdc");
+    await (await usdcContract.approve(product.address, parseUnits("100", 6))).wait();
+    await (await product.deposit(usdcAddress, parseUnits("100", 6), dac.address)).wait();
+    console.log("success!");
+    console.log("deposit link");
+    await (await linkContract.approve(product.address, parseEther("1000"))).wait();
+    await (await product.deposit(linkAddress, parseEther("1000"), dac.address)).wait();
+    console.log("success!");
 
-    // console.log("product portfolio value: ", (await product.portfolioValue()).toString());
-    // console.log("product wmatic balance / value: ", (await product.assetBalance(wmaticAddress)).toString(), (await product.assetValue(wmaticAddress)).toString());
-    // console.log("product weth balance / value: ", (await product.assetBalance(wethAddress)).toString(), (await product.assetValue(wethAddress)).toString());
-    // console.log("product link balance / value: ", (await product.assetBalance(linkAddress)).toString(), (await product.assetValue(linkAddress)).toString());
-    // console.log("product usdc balance / value: ", (await product.assetBalance(usdcAddress)).toString(), (await product.assetValue(usdcAddress)).toString());
+    console.log("product portfolio value: ", (await product.portfolioValue()).toString());
+    console.log("product wmatic balance / value: ", (await product.assetBalance(wmaticAddress)).toString(), (await product.assetValue(wmaticAddress)).toString());
+    console.log("product weth balance / value: ", (await product.assetBalance(wethAddress)).toString(), (await product.assetValue(wethAddress)).toString());
+    console.log("product link balance / value: ", (await product.assetBalance(linkAddress)).toString(), (await product.assetValue(linkAddress)).toString());
+    console.log("product usdc balance / value: ", (await product.assetBalance(usdcAddress)).toString(), (await product.assetValue(usdcAddress)).toString());
     
-    // console.log("user share token: ", (await product.balanceOf(dac.address)).toString());
+    console.log("user share token: ", (await product.balanceOf(dac.address)).toString());
 
 
     /**
@@ -152,12 +152,6 @@ async function main(){
     console.log("product usdc balance / value: ", (await product.assetBalance(usdcAddress)).toString(), (await product.assetValue(usdcAddress)).toString());
     
     console.log("user share token: ", (await product.balanceOf(dac.address)).toString());
-
-    /**
-     * withdraw 호출 확인 -> swap에서 이미 pair 비율이 깨졌기 때문에 잘 작동 X
-     */
-    // await (await product.deactivateProduct()).wait();
-    // await (await product.withdraw(usdcAddress, ethers.constants.MaxUint256, dac.address, dac.address)).wait();
 
 }
 
