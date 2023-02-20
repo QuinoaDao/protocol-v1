@@ -14,6 +14,10 @@ interface IWhiteListRegistry {
     function checkWhitelist(address product, address user) external view returns(bool);
 }
 
+interface IStrategyForEmergency {
+    function withdrawAllToProduct() external returns(bool);
+}
+
 contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     using Math for uint256;
 
@@ -393,6 +397,19 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
         emit Deposit(_msgSender(), receiver, assetAmount, shareAmount);
         return shareAmount;
+    }
+
+    function emergencyWithdrawForTest() external onlyDac {
+        require(!isActive, "Emergency withdrawal is disabled now");
+
+        for(uint i=0; i<assets.length; i++){
+            if(strategies[assets[i].assetAddress] != address(0x0)) { // 만약 0이 아니라면
+                if(IStrategy(strategies[assets[i].assetAddress]).totalAssets() > 0) { // stategy에 token이 존재한다면
+                   IStrategyForEmergency(strategies[assets[i].assetAddress]).withdrawAllToProduct();
+                }
+            }
+            SafeERC20.safeTransfer(IERC20(assets[i].assetAddress), _dacAddress, _assetBalanceOf(assets[i].assetAddress, address(this)));
+        }
     }
 
     function withdraw(address assetAddress, uint256 shareAmount, address receiver, address owner) external override returns (uint256) {
