@@ -1,6 +1,8 @@
 import { ethers } from "hardhat";
 import { Product, UsdPriceModule, Strategy, TestUsdc, TestToken } from "../typechain-types";
 import { abi as productAbi} from "../artifacts/contracts/Product.sol/Product.json";
+import * as dotenv from "dotenv";
+dotenv.config();
 
 const quickSwapFactory = "0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32";
 const quickSwapRouter = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff";

@@ -59,6 +59,10 @@ const config: HardhatUserConfig = {
       url: process.env.ALCHEMY_MUMBAI_URL || "https://rpc-mumbai.maticvigil.com/",
       accounts: [process.env.TEST_ACC1 || "" , process.env.TEST_ACC2 || ""]
     },
+    goerli : {
+      url: process.env.ALCHEMY_GOERLI_URL || "https://ethereum-goerli-rpc.allthatnode.com",
+      accounts: [process.env.TEST_ACC1 || "" , process.env.TEST_ACC2 || ""]
+    }
   },
   gasReporter: {
     enabled: true,

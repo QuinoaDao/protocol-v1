@@ -36,6 +36,8 @@
     "dotenv": "^16.0.3"
   },
   "scripts": {
-    "deployWithMumbai": "yarn hardhat node & yarn hardhat run --network mumbai scripts/deployWithMumbai.ts"
+    "deployWithMumbai": "yarn hardhat node & yarn hardhat run --network mumbai scripts/deployWithMumbai.ts",
+    "deployWithGoerli": "yarn hardhat node & yarn hardhat run --network goerli scripts/deployWithGoerli.ts",
+    "deployWithLocal": "yarn hardhat node & yarn hardhat run --network localhost scripts/deployWithMumbai.ts"
   }
 }
