@@ -34,6 +34,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
     bool private isActive;
 
+    ///@dev DAC means the owner of the product.
     string private _dacName; 
     address private _dacAddress;
     uint256 private _sinceDate;
@@ -60,8 +61,13 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         uint256 time
     );
 
-    ///@dev DAC means the owner of the product.
-    ///Only dac member can call the rebalance method.
+    event EmergencyWithdraw(
+        address indexed caller,
+        address indexed dac,
+        uint256 portfolioValue,
+        uint256 time
+    );
+
     modifier onlyDac {
         require(_msgSender()==_dacAddress, "Only dac can access");
         _;
@@ -403,13 +409,15 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         require(!isActive, "Emergency withdrawal is disabled now");
 
         for(uint i=0; i<assets.length; i++){
-            if(strategies[assets[i].assetAddress] != address(0x0)) { // 만약 0이 아니라면
-                if(IStrategy(strategies[assets[i].assetAddress]).totalAssets() > 0) { // stategy에 token이 존재한다면
-                   IStrategyForEmergency(strategies[assets[i].assetAddress]).withdrawAllToProduct();
+            if(strategies[assets[i].assetAddress] != address(0x0)) { 
+                if(IStrategy(strategies[assets[i].assetAddress]).totalAssets() > 0) { 
+                   require(IStrategyForEmergency(strategies[assets[i].assetAddress]).withdrawAllToProduct());
                 }
             }
             SafeERC20.safeTransfer(IERC20(assets[i].assetAddress), _dacAddress, _assetBalanceOf(assets[i].assetAddress, address(this)));
         }
+
+        emit EmergencyWithdraw(_msgSender(), _dacAddress, portfolioValue(), block.timestamp);
     }
 
     function withdraw(address assetAddress, uint256 shareAmount, address receiver, address owner) external override returns (uint256) {
@@ -531,7 +539,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
             currentPortfolioValue += assetValue(assets[i].assetAddress); 
         }
 
-        // SELL
         for(uint i=0; i < assets.length; i++){
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 continue;
@@ -555,7 +562,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
             }
         }
 
-        // BUY
         for(uint i=0; i < assets.length; i++) {
             if(assets[i].assetAddress == _underlyingAssetAddress) {
                 continue;
@@ -599,7 +605,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     }
 
     function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData) {
-        // check current weights allocated evenly?
         upkeepNeeded = (!checkValidAllocation() || (lastRebalanced + rebalanceInterval < block.timestamp));
         return(upkeepNeeded, bytes(""));
     }
