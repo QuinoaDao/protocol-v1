@@ -399,7 +399,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         return shareAmount;
     }
 
-    function emergencyWithdrawForTest() external onlyDac {
+    function emergencyWithdraw() external onlyDac {
         require(!isActive, "Emergency withdrawal is disabled now");
 
         for(uint i=0; i<assets.length; i++){
