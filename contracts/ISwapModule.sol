@@ -2,7 +2,8 @@
 pragma solidity ^0.8.17;
 
 interface ISwapModule {
-    function getRouterAddress() external returns(address);
+    function getRouterAddress() external view returns(address);
+    function getFactoryAddress() external view returns(address);
 
     function swapExactInput(
         uint256 amountIn,
