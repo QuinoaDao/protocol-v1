@@ -60,8 +60,6 @@ describe("scenario 1",async () => {
             assetValue_deposit.push(rand.toString());
         }
 
-        // console.log(assetChoices_deposit);
-        // console.log(assetValue_deposit);
 
         for (let i=1; i<301; i++){
             let depositAddress = assetChoices_deposit[i];
@@ -73,7 +71,6 @@ describe("scenario 1",async () => {
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
 
-            console.log("deposit: ", i);
         }
 
         let productPortfolioValue_2 = (await product.portfolioValue()).toString();

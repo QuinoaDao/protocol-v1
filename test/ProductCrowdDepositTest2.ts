@@ -48,17 +48,11 @@ describe("random token deposit & random token withdraw test",async () => {
             let depositBalance = depositBalances[rand];
             let depositValue = await usdPriceModule.getAssetUsdValue(depositAddress, depositBalance);
 
-            console.log("deposit: ", i, "deposit Address: ", depositAddress);
-
             await utils.setWhitelists([signers[i]], whitelistRegistry, product.address);
-            console.log("whitelist setting success");
 
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
-            console.log("Approve success: ", await depositContract.allowance(signers[i].address, product.address));
             
-            console.log("deposit balance: ", depositBalance, "user balance: ", await depositContract.balanceOf(signers[i].address));
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
-            console.log("deposit success");
 
             expect(await product.balanceOf(signers[i].address)).equal(depositValue);
 

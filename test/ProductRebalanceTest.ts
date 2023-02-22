@@ -57,7 +57,6 @@ describe("rebalance test",async () => {
 
             expect(await product.balanceOf(signers[i].address)).equal(oneUserShareBalance);
 
-            console.log("signers[", i, "] deposit complete");
         }
 
         let productDepositShareBalance = await product.totalSupply();
@@ -169,15 +168,6 @@ describe("rebalance test",async () => {
             withdrawValues.push(userWithdrawValue);
             withdrawalAddresses.push(withdrawalAddress);
 
-            // console.log("signer[", i, "] withdraw complete");
-            // console.log("signer withdraw token address: ", withdrawalAddress);
-            // console.log("--")
-            // console.log("after withdraw product wmatic balance: ", await product.assetBalance(utils.wmaticAddress));
-            // console.log("after withdraw product weth balance: ", await product.assetBalance(utils.wethAddress));
-            // console.log("after withdraw product usdc balance: ", await product.assetBalance(utils.usdcAddress));
-            // console.log("after withdraw product quick balance: ", await product.assetBalance(utils.quickAddress));
-            // console.log("after withdraw product ghst balance: ", await product.assetBalance(utils.ghstAddress));
-            // console.log("-----------------------------------------------------------------------------------")
         }
 
 
