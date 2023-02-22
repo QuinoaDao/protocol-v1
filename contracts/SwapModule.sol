@@ -5,25 +5,13 @@ import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "./ISwapModule.sol";
 
 contract SwapModule {
-    address public factory;
-    IUniswapV2Router02 public router;
+    address public swapFactory;
+    IUniswapV2Router02 public swapRouter;
 
-    function _getPair(address tokenA, address tokenB) internal view returns (IUniswapV2Pair) {
-        IUniswapV2Pair pair = IUniswapV2Pair(UniswapV2Library.pairFor(factory, tokenA, tokenB));
-        return pair;
-    }
-
-    function _getPairAddress(address tokenA, address tokenB) internal view returns (address) {
-        IUniswapV2Factory factory_ = IUniswapV2Factory(factory);
-        address pair = factory_.getPair(tokenA, tokenB);
-        return pair;
-    }
-
-    function _swapExactInput(uint256 amountIn, address inputToken, address outputToken, address quinoaVault) internal {
-        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
+    function _swapExactInput(uint256 amountIn, address inputToken, address outputToken, address to) internal {
+        IUniswapV2Pair pair = IUniswapV2Pair(UniswapV2Library.pairFor(swapFactory, inputToken, outputToken));
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
@@ -35,7 +23,7 @@ contract SwapModule {
 
         // set slippate to 0.5%
         uint tokenAmountOutMin = amountOut * (1000 - 5) / 1000;
-        router.swapExactTokensForTokens(amountIn, tokenAmountOutMin, path, quinoaVault, block.timestamp);
+        swapRouter.swapExactTokensForTokens(amountIn, tokenAmountOutMin, path, to, block.timestamp);
     }
 
     function _estimateSwapOutputAmount( uint256 amountIn, address inputToken, address outputToken) internal view returns (uint256) { 
@@ -43,7 +31,7 @@ contract SwapModule {
             return 0;
         }
 
-        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
+        IUniswapV2Pair pair = IUniswapV2Pair(UniswapV2Library.pairFor(swapFactory, inputToken, outputToken));
         (uint reserves0, uint reserves1,) = pair.getReserves();
 
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
@@ -56,8 +44,8 @@ contract SwapModule {
         return amountOut;
     }
 
-    function _swapExactOutput(uint256 amountOut, address inputToken, address outputToken, address quinoaVault) internal {
-        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
+    function _swapExactOutput(uint256 amountOut, address inputToken, address outputToken, address to) internal {
+        IUniswapV2Pair pair = IUniswapV2Pair(UniswapV2Library.pairFor(swapFactory, inputToken, outputToken));
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
@@ -69,7 +57,7 @@ contract SwapModule {
 
         // set slippate to 0.5%
         uint tokenAmountInMax = amountIn * (1000 + 5) / 1000;
-        router.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, quinoaVault, block.timestamp);
+        swapRouter.swapTokensForExactTokens(amountOut, tokenAmountInMax, path, to, block.timestamp);
     }
 
     function _estimateSwapInputAmount( uint256 amountOut, address inputToken, address outputToken) internal view returns (uint256) {
@@ -78,7 +66,7 @@ contract SwapModule {
             return 0;
         }
 
-        IUniswapV2Pair pair = _getPair(inputToken, outputToken);
+        IUniswapV2Pair pair = IUniswapV2Pair(UniswapV2Library.pairFor(swapFactory, inputToken, outputToken));
         (uint reserves0, uint reserves1,) = pair.getReserves();
         (uint inputTokenReserve, uint outputTokenReserve) = inputToken == pair.token0() ? (reserves0, reserves1) : (reserves1, reserves0);
 
