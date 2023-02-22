@@ -20,7 +20,7 @@ const PRODUCT_OPTIMIZER = {
   settings: {
     optimizer: {
       enabled: true,
-      runs: 200
+      runs: 300
     },
   },
 }
@@ -33,6 +33,7 @@ const config: HardhatUserConfig = {
     compilers: [DEFAULT_OPTIMIZER],
     overrides: {
       "contracts/Product.sol": PRODUCT_OPTIMIZER,
+      "contracts/archive/customErrorProduct.sol": PRODUCT_OPTIMIZER
     },
   },
   networks: {
