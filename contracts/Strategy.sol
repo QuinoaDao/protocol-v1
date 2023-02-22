@@ -40,7 +40,7 @@ contract Strategy is IStrategy {
     }
 
     function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) {
-        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount);
+        if(assetAmount > 0) SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount);
         return true;
     }
 
