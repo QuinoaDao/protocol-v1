@@ -1,6 +1,7 @@
 import * as utils from "./utils";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
+import { expect } from "chai";
 
 describe("scenario 2",async () => {
     it('rebalancing 4번, quick/ghst 미포함',async () => {
@@ -16,7 +17,7 @@ describe("scenario 2",async () => {
             whitelistRegistry
         } = await utils.deployContracts(signers[0]);
         await utils.setUsdPriceModule(signers[0], usdPriceModule);
-        await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        await utils.setProductWithoutQuickAndGhst(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy);
     
         const {
             wMaticContract,

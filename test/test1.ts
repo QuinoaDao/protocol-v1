@@ -1,6 +1,7 @@
 import * as utils from "./utils";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
+import { expect } from "chai";
 
 describe("scenario 1",async () => {
     it('rebalancing 1번, quick/ghst 미포함',async () => {
@@ -16,7 +17,7 @@ describe("scenario 1",async () => {
             whitelistRegistry
         } = await utils.deployContracts(signers[0]);
         await utils.setUsdPriceModule(signers[0], usdPriceModule);
-        await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        await utils.setProductWithoutQuickAndGhst(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy);
     
         const {
             wMaticContract,
@@ -112,7 +113,6 @@ describe("scenario 1",async () => {
         let user_shareBalance = ["0"];
         let user_estimatedWithdraw = ["0"];
 
-        console.log("USER,TOKEN_PAIR,DEPOSIT,SHARE,WITHDRAW,ESTIMATED");
         for (let i=1; i<301; i++) {
             let withdrawAddress = assetChoices_withdraw[i];
             let withdrawContract = assetContracts_withdraw[i];
@@ -126,7 +126,6 @@ describe("scenario 1",async () => {
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawAddress, (await withdrawContract.balanceOf(signers[i].address)).sub(beforeUserBalance));
 
             assetValue_withdraw.push((userWithdrawValue).toString());
-            console.log(i, assetChoices_deposit[i], "-", assetChoices_withdraw[i], user_shareBalance[i],assetValue_deposit[i], assetValue_withdraw[i], user_estimatedWithdraw[i]);
         }
 
 
