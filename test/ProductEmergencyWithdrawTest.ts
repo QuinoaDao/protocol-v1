@@ -97,7 +97,6 @@ describe("emergency withdraw test",async () => {
         expect(await product.checkActivation()).equal(true);
         await (await product.deactivateProduct()).wait();
         expect(await product.checkActivation()).equal(false);
-        console.log("deactivate product success");
 
         // withdraw all tokens
         // wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy
@@ -106,31 +105,27 @@ describe("emergency withdraw test",async () => {
         const beforeWithdrawDacUsdcBalance = await usdcContract.balanceOf(signers[0].address);
         const beforeWithdrawDacGhstBalance = await ghstContract.balanceOf(signers[0].address);
         const beforeWithdrawDacQuickBalance = await quickContract.balanceOf(signers[0].address);
-        console.log("get dac balances success");
 
         const beforeWithdrawProductWmaticBalance = await product.assetBalance(utils.wmaticAddress);
         const beforeWithdrawProductWethBalance = await product.assetBalance(utils.wethAddress);
         const beforeWithdrawProductUsdcBalance = await product.assetBalance(utils.usdcAddress);
         const beforeWithdrawProductGhstBalance = await product.assetBalance(utils.ghstAddress);
         const beforeWithdrawProductQuickBalance = await product.assetBalance(utils.quickAddress);
-        console.log("get product balances success");
 
         await (await product.emergencyWithdraw()).wait();
-        console.log("emergencyWithdraw success");
+        expect(await product.checkActivation()).equal(false);
 
         const afterWithdrawDacWmaticBalance = await wMaticContract.balanceOf(signers[0].address);
         const afterWithdrawDacWethBalance = await wEthContract.balanceOf(signers[0].address);
         const afterWithdrawDacUsdcBalance = await usdcContract.balanceOf(signers[0].address);
         const afterWithdrawDacGhstBalance = await ghstContract.balanceOf(signers[0].address);
         const afterWithdrawDacQuickBalance = await quickContract.balanceOf(signers[0].address);
-        console.log("get dac balances success");
 
         const afterWithdrawProductWmaticBalance = await product.assetBalance(utils.wmaticAddress);
         const afterWithdrawProductWethBalance = await product.assetBalance(utils.wethAddress);
         const afterWithdrawProductUsdcBalance = await product.assetBalance(utils.usdcAddress);
         const afterWithdrawProductGhstBalance = await product.assetBalance(utils.ghstAddress);
         const afterWithdrawProductQuickBalance = await product.assetBalance(utils.quickAddress);
-        console.log("get product balances success");
 
         expect((afterWithdrawProductWmaticBalance).toString()).equal("0");
         expect((afterWithdrawProductWethBalance).toString()).equal("0");
@@ -138,14 +133,12 @@ describe("emergency withdraw test",async () => {
         expect((afterWithdrawProductGhstBalance).toString()).equal("0");
         expect((afterWithdrawProductQuickBalance).toString()).equal("0");
         expect((await product.portfolioValue()).toString()).equal("0");
-        console.log("product balances expect success");
 
         expect(beforeWithdrawDacWmaticBalance.add(beforeWithdrawProductWmaticBalance)).equal(afterWithdrawDacWmaticBalance);
         expect(beforeWithdrawDacWethBalance.add(beforeWithdrawProductWethBalance)).equal(afterWithdrawDacWethBalance);
         expect(beforeWithdrawDacUsdcBalance.add(beforeWithdrawProductUsdcBalance)).equal(afterWithdrawDacUsdcBalance);
         expect(beforeWithdrawDacGhstBalance.add(beforeWithdrawProductGhstBalance)).equal(afterWithdrawDacGhstBalance);
         expect(beforeWithdrawDacQuickBalance.add(beforeWithdrawProductQuickBalance)).equal(afterWithdrawDacQuickBalance);
-        console.log("dac balances expect success");
 
     })
 })
