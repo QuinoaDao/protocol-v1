@@ -75,7 +75,6 @@ describe("scenario 4",async () => {
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
 
-            console.log("deposit: ", i);
         }
 
         let productPortfolioValue_2 = (await product.portfolioValue()).toString();
@@ -116,7 +115,6 @@ describe("scenario 4",async () => {
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
 
-            console.log("deposit: ", i);
         }
 
         let productPortfolioValue_4 = (await product.portfolioValue()).toString();
@@ -170,8 +168,6 @@ describe("scenario 4",async () => {
         let user_estimatedWithdraw = ["0"];
 
         // withdraw 1
-        console.log("USER,TOKEN_PAIR,DEPOSIT,SHARE,WITHDRAW,ESTIMATED");
-        
         for (let i=1; i<151; i++) {
             let withdrawAddress = assetChoices_withdraw[i];
             let withdrawContract = assetContracts_withdraw[i];
@@ -185,7 +181,6 @@ describe("scenario 4",async () => {
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawAddress, (await withdrawContract.balanceOf(signers[i].address)).sub(beforeUserBalance));
 
             assetValue_withdraw.push((userWithdrawValue).toString());
-            console.log(i, assetChoices_deposit[i], "-", assetChoices_withdraw[i], user_shareBalance[i],assetValue_deposit[i], assetValue_withdraw[i], user_estimatedWithdraw[i]);
         }
 
         let productPortfolioValue_6 = (await product.portfolioValue()).toString();
@@ -229,7 +224,6 @@ describe("scenario 4",async () => {
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawAddress, (await withdrawContract.balanceOf(signers[i].address)).sub(beforeUserBalance));
 
             assetValue_withdraw.push((userWithdrawValue).toString());
-            console.log(i, assetChoices_deposit[i], "-", assetChoices_withdraw[i], user_shareBalance[i],assetValue_deposit[i], assetValue_withdraw[i], user_estimatedWithdraw[i]);
         }
         
         let productPortfolioValue_8 = (await product.portfolioValue()).toString();

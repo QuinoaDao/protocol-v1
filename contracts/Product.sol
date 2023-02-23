@@ -10,8 +10,19 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 
+error DuplicatedValue(); 
+error ZeroAddress(); 
+error NotFound(); 
+error OutOfRange();
+error DisabledNow(bool status); 
+error ErrorWithMsg(string message);
+
 interface IWhiteListRegistry {
     function checkWhitelist(address product, address user) external view returns(bool);
+}
+
+interface IStrategyForEmergency {
+    function withdrawAllToProduct() external returns(bool);
 }
 
 contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
@@ -30,12 +41,13 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
     bool private isActive;
 
+    ///@dev DAC means the owner of the product.
     string private _dacName; 
     address private _dacAddress;
     uint256 private _sinceDate;
     
     address private _keeperRegistry;
-    uint256 private rebalanceInterval;
+    uint256 private _rebalanceInterval;
 
     IUsdPriceModule private _usdPriceModule;
     IWhiteListRegistry private _whitelistRegistry;
@@ -56,15 +68,20 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         uint256 time
     );
 
-    ///@dev DAC means the owner of the product.
-    ///Only dac member can call the rebalance method.
+    event EmergencyWithdraw(
+        address indexed caller,
+        address indexed dac,
+        uint256 portfolioValue,
+        uint256 time
+    );
+
     modifier onlyDac {
-        require(_msgSender()==_dacAddress, "Only dac can access");
+        require(_msgSender()==_dacAddress, "Only dac can access"); 
         _;
     }
 
     modifier onlyWhitelist {
-        require((_whitelistRegistry.checkWhitelist(address(this), _msgSender())) || ( _msgSender()==_dacAddress), "You're not in whitelist");
+        require((_whitelistRegistry.checkWhitelist(address(this), _msgSender())) || ( _msgSender()==_dacAddress), "You're not in whitelist"); 
         _;
     }
         
@@ -83,41 +100,43 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         _sinceDate = block.timestamp;
         isActive = false;
 
-        require(productInfo_.dacAddress != address(0x0), "Invalid dac address");
-        _dacAddress = productInfo_.dacAddress;
+        if(productInfo_.dacAddress == address(0x0)) _dacAddress = _msgSender();
+        else _dacAddress = productInfo_.dacAddress;
         _dacName = productInfo_.dacName;
 
-        require(productInfo_.underlyingAssetAddress != address(0x0), "Invalid Underlying Asset Address");
+        if(productInfo_.underlyingAssetAddress == address(0x0)) revert ZeroAddress();
         _underlyingAssetAddress = productInfo_.underlyingAssetAddress;
         assets.push(AssetParams(_underlyingAssetAddress, 0, 0));
 
-        require(whitelistRegistry_ != address(0x0), "Invalid whitelist registry address");
+        if(whitelistRegistry_ == address(0x0)) revert ZeroAddress();
         _whitelistRegistry = IWhiteListRegistry(whitelistRegistry_);
         
-        require(usdPriceModule_ != address(0x0), "Invalid USD price module address");
+        if(usdPriceModule_ == address(0x0)) revert ZeroAddress();
         _usdPriceModule = IUsdPriceModule(usdPriceModule_);
 
-        require(keeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
+        if(keeperRegistry_ == address(0x0)) revert ZeroAddress();
         _keeperRegistry = keeperRegistry_;
 
         for (uint i=0; i<assetAddresses_.length; i++){
-            require(assetAddresses_[i] != address(0x0), "Invalid underlying asset address");
+            if(assetAddresses_[i] == address(0x0)) revert ZeroAddress();
             if(_underlyingAssetAddress == assetAddresses_[i]) {
                 continue;
             }
             assets.push(AssetParams(assetAddresses_[i], 0, 0)); 
         }
 
-        require((productInfo_.floatRatio >= 0) || (productInfo_.floatRatio <= 100000), "Invalid float ratio");
+        if((productInfo_.floatRatio < 0) || (productInfo_.floatRatio > 100000)) revert OutOfRange();
         _floatRatio = productInfo_.floatRatio;
         
-        require((productInfo_.deviationThreshold >= 0) || (productInfo_.deviationThreshold <= 10000), "Invalid Rebalance Threshold");
+        if((productInfo_.deviationThreshold < 0) || (productInfo_.deviationThreshold > 10000)) revert OutOfRange();
         _deviationThreshold = productInfo_.deviationThreshold;
 
-        factory = swapFactory_;
-        router = IUniswapV2Router02(swapRouter_);
+        if(swapFactory_ == address(0x0)) revert ZeroAddress();
+        swapFactory = swapFactory_;
+        if(swapRouter_ == address(0x0)) revert ZeroAddress();
+        swapRouter = IUniswapV2Router02(swapRouter_);
 
-        rebalanceInterval = 1 days; 
+        _rebalanceInterval = 1 days; 
     }
 
     function currentStrategies() public view override returns(address[] memory) {
@@ -151,69 +170,81 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     ///@notice Add one underlying asset to be handled by the product. 
     ///@dev It is recommended to call updateWeight method after calling this method.
     function addAsset(address newAssetAddress) external onlyDac {
-        require(newAssetAddress!=address(0x0), "Invalid asset address");
-        require(!checkAsset(newAssetAddress), "Asset Already Exists");
+        if(newAssetAddress == address(0x0)) revert ZeroAddress();
+        if(checkAsset(newAssetAddress)) revert DuplicatedValue();
         assets.push(AssetParams(newAssetAddress, 0, 0)); 
     }
 
     function addStrategy(address strategyAddress) external onlyDac {
-        require(checkAsset(IStrategy(strategyAddress).underlyingAsset()), "Asset Doesn't Exist");
-        require(strategyAddress!=address(0x0), "Invalid Strategy address");
-        require(strategies[IStrategy(strategyAddress).underlyingAsset()] == address(0x0), "Strategy already exist");
-        require(IStrategy(strategyAddress).dacAddress() == _dacAddress, "DAC conflict");
+        if(!checkAsset(IStrategy(strategyAddress).underlyingAsset())) revert NotFound();
+        if(strategyAddress == address(0x0)) revert ZeroAddress();
+        if(strategies[IStrategy(strategyAddress).underlyingAsset()] != address(0x0)) revert DuplicatedValue();
+        if(IStrategy(strategyAddress).dacAddress() != _dacAddress) revert ErrorWithMsg("strategyDacConflict");
         strategies[IStrategy(strategyAddress).underlyingAsset()] = strategyAddress;
     }
 
     ///@notice update target weights and it will be used as a reference weight at the next rebalancing.
     function updateWeight(address[] memory assetAddresses, uint256[] memory assetWeights) external onlyDac {
-        require(assetAddresses.length == assetWeights.length, "Invalid weight pair");
+        if(assetAddresses.length != assetWeights.length) revert ErrorWithMsg("pairConflict");
+
         uint256 sumOfWeight = 0;
         for (uint i = 0; i < assetAddresses.length; i++) {
             bool found = false;
             for (uint j = 0; j < assets.length; j++) {
                 if(assets[j].assetAddress == assetAddresses[i]) {
-                    require((assetWeights[i] >= 0) || (assetWeights[i] <= 100000), "Invalid asset target weight");
+                    if((assetWeights[i] < 0) || (assetWeights[i] > 100000)) revert OutOfRange();
                     assets[j].targetWeight = assetWeights[i];
                     sumOfWeight += assetWeights[i];
                     found = true;
                     break;
                 }
             }
-            require(found, "Asset not found");
+            if(!found) revert NotFound();
         }
-        require(sumOfWeight == 100000, "Sum of asset weights is not 100%");
+        if(sumOfWeight != 100000) revert OutOfRange();
     }
 
     function updateUsdPriceModule(address newUsdPriceModule) external onlyDac {
-        require(newUsdPriceModule != address(0x0), "Invalid USD price module");
-        require(newUsdPriceModule != address(_usdPriceModule), "Duplicated USD price module");
+        if(newUsdPriceModule == address(0x0)) revert ZeroAddress();
+        if(newUsdPriceModule == address(_usdPriceModule)) revert DuplicatedValue();
         _usdPriceModule = IUsdPriceModule(newUsdPriceModule);
     }
 
+    function updateSwapModuleRouter(address newSwapModuleRouter) external onlyDac {
+        if(newSwapModuleRouter == address(0x0)) revert ZeroAddress();
+        if(newSwapModuleRouter == address(_usdPriceModule)) revert DuplicatedValue();
+        swapRouter = IUniswapV2Router02(newSwapModuleRouter);
+    }
+
+    function updateSwapModuleFactory(address newSwapModuleFactory) external onlyDac {
+        if(newSwapModuleFactory == address(0x0)) revert ZeroAddress();
+        if(newSwapModuleFactory == address(_usdPriceModule)) revert DuplicatedValue();
+        swapFactory = newSwapModuleFactory;
+    }
+
     function updateWhitelistRegistry(address newWhitelistRegistry) external onlyDac {
-        require(newWhitelistRegistry != address(0x0), "Invalid whitelist registry");
-        require(newWhitelistRegistry != address(_whitelistRegistry), "Duplicated whitelist registry");
+        if(newWhitelistRegistry == address(0x0)) revert ZeroAddress();
+        if(newWhitelistRegistry == address(_whitelistRegistry)) revert DuplicatedValue();
         _whitelistRegistry = IWhiteListRegistry(newWhitelistRegistry);
     }
 
-
     function updateKeeperRegistryAddress(address newKeeperRegistry_) external onlyDac {
-        require(newKeeperRegistry_ != address(0x0), "Invalid Keeper Registry Address");
-        require(newKeeperRegistry_ != _keeperRegistry, "Duplicated Address input");
+        if(newKeeperRegistry_ == address(0x0)) revert ZeroAddress();
+        if(newKeeperRegistry_ == _keeperRegistry) revert DuplicatedValue();
         _keeperRegistry = newKeeperRegistry_;
     }
 
     ///@notice Update target float ratio. It will reflect at the next rebalancing or withdrawal.
     function updateFloatRatio(uint256 newFloatRatio) external onlyDac {
-        require(newFloatRatio != _floatRatio, "Duplicated Vaule input");
-        require((newFloatRatio >= 0) || (newFloatRatio <= 100000), "Invalid float ratio");
+        if(newFloatRatio == _floatRatio) revert DuplicatedValue();
+        if((newFloatRatio < 0) || (newFloatRatio > 100000)) revert OutOfRange();
         _floatRatio = newFloatRatio;
     }
 
     ///@notice Update rebalance threshold. It will reflect at the next rebalancing or withdrawal.
     function updateDeviationThreshold(uint256 newDeviationThreshold) external onlyDac {
-        require(newDeviationThreshold != _deviationThreshold, "Duplicated Vaule input");
-        require((newDeviationThreshold >= 0) || (newDeviationThreshold <= 10000), "Invalid Rebalance Threshold");
+        if(newDeviationThreshold == _deviationThreshold) revert DuplicatedValue();
+        if((newDeviationThreshold < 0) || (newDeviationThreshold > 100000)) revert OutOfRange();
         _deviationThreshold = newDeviationThreshold;
     }
 
@@ -271,7 +302,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
     ///@notice Returns the float amount for one of the underlying assets of the product.
     function assetFloatBalance(address assetAddress) public view returns(uint256) {
-        require(checkAsset(assetAddress), "Asset Doesn't Exist");
+        if(!checkAsset(assetAddress)) revert NotFound();
         return _assetBalanceOf(assetAddress, address(this));
     }
 
@@ -334,30 +365,28 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     }
 
     function activateProduct() external onlyDac {
-        require(!isActive, "Already activate product");
+        if(isActive) revert DisabledNow(isActive);
         
-        require(assets.length != 0, "No assets");
+        if(assets.length == 0) revert NotFound();
 
         uint sumOfWeights = 0;
         for(uint i=0; i<assets.length; i++) {
             sumOfWeights += assets[i].targetWeight;
             if(assets[i].targetWeight > 0) {
-                require(strategies[assets[i].assetAddress] != address(0), "No strategies");
+                if(strategies[assets[i].assetAddress] == address(0)) revert NotFound();
             }
         }
-        require(sumOfWeights == 100000, "Sum of target weights is not 100%");
-
-        require(withdrawalQueue.length != 0, "No withdrawal Queue");
-
-        require(shareValue(balanceOf(_dacAddress)) > (200 * 1e18), "Dac's deposit balance is too lower");
+        if(sumOfWeights != 100000) revert OutOfRange();
+        if(withdrawalQueue.length == 0) revert ErrorWithMsg("noWithdrawalQueue");
+        if(shareValue(balanceOf(_dacAddress)) < (200 * 1e18)) revert ErrorWithMsg("TooLowDacDepositValue");
 
         isActive = true;
 
         emit ActivateProduct(_msgSender(), block.timestamp);
     }
 
-    function deactivateProduct() external onlyDac {
-        require(isActive, "Already deactivate product");
+    function deactivateProduct() public onlyDac {
+        if(!isActive) revert DisabledNow(isActive);
 
         isActive = false;
 
@@ -365,10 +394,10 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     }
 
     function updateWithdrawalQueue(address[] memory newWithdrawalQueue) external onlyDac {
-        require(newWithdrawalQueue.length <= assets.length, "Too many elements");
+        if(newWithdrawalQueue.length > assets.length) revert ErrorWithMsg("TooManyElements");
 
         for (uint i=0; i<newWithdrawalQueue.length; i++){
-            require(checkStrategy(newWithdrawalQueue[i]), "Strategy doesn't exist");
+            if(!checkStrategy(newWithdrawalQueue[i])) revert NotFound();
         }
 
         withdrawalQueue = newWithdrawalQueue;
@@ -380,19 +409,36 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         // Dac cannot deposit when product is in deactivation state
         require((_msgSender() == _dacAddress) || isActive, "Deposit is disabled now");
         require(checkAsset(assetAddress), "Asset not found");
+
         // Users can deposit only under $55
         uint256 depositValue = _usdPriceModule.getAssetUsdValue(assetAddress, assetAmount);
         require(depositValue < maxDepositValue(_msgSender()), "Too much deposit");
 
         uint256 shareAmount = _valueToShares(depositValue);
+        uint256 depositSharePrice = sharePrice();
         require(shareAmount > 0, "short of deposit");
 
         SafeERC20.safeTransferFrom(IERC20(assetAddress), _msgSender(), address(this), assetAmount);
 
         _mint(receiver, shareAmount);
 
-        emit Deposit(_msgSender(), receiver, assetAmount, shareAmount);
+        emit Deposit(_msgSender(), receiver, assetAmount, shareAmount, depositSharePrice, block.timestamp);
         return shareAmount;
+    }
+
+    function emergencyWithdraw() external onlyDac {
+        if(isActive) deactivateProduct();
+
+        for(uint i=0; i<assets.length; i++){
+            if(strategies[assets[i].assetAddress] != address(0x0)) { 
+                if(IStrategy(strategies[assets[i].assetAddress]).totalAssets() > 0) { 
+                   require(IStrategyForEmergency(strategies[assets[i].assetAddress]).withdrawAllToProduct());
+                }
+            }
+            SafeERC20.safeTransfer(IERC20(assets[i].assetAddress), _dacAddress, _assetBalanceOf(assets[i].assetAddress, address(this)));
+        }
+
+        emit EmergencyWithdraw(_msgSender(), _dacAddress, portfolioValue(), block.timestamp);
     }
 
     function withdraw(address assetAddress, uint256 shareAmount, address receiver, address owner) external override returns (uint256) {
@@ -424,25 +470,22 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                     break;
                 }
 
-                uint256 needAmount = _estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress);
-                if(needAmount > _assetBalanceOf(floatAssetAddress, address(this))) {
-                    needAmount =  _assetBalanceOf(floatAssetAddress, address(this));
+                uint256 needAmount = Math.min(_estimateSwapInputAmount(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress), _assetBalanceOf(floatAssetAddress, address(this)));
+                if(_estimateSwapOutputAmount(needAmount, floatAssetAddress, assetAddress) == 0) { // There is no float
+                    continue;
+                }
 
-                    if(_estimateSwapOutputAmount(needAmount, floatAssetAddress, assetAddress) == 0) { // There is no float
-                        continue;
-                    }
-                    
-                    IERC20(floatAssetAddress).approve(address(router), needAmount);
+                IERC20(floatAssetAddress).approve(address(swapRouter), needAmount);
+
+                if(needAmount == _assetBalanceOf(floatAssetAddress, address(this))) {
                     _swapExactInput(needAmount, floatAssetAddress, assetAddress, address(this));
                 }
                 else {
-                    IERC20(floatAssetAddress).approve(address(router), needAmount);
-                    _swapExactOutput(withdrawalAmount - floatAmount, assets[i].assetAddress, assetAddress, address(this));
+                    _swapExactOutput(withdrawalAmount - floatAmount, floatAssetAddress, assetAddress, address(this));
                 }
             }
 
             for (uint i=0; i<withdrawalQueue.length; i++){ // Withdraw tokens from the strategy
-
                 uint256 floatAmount = _assetBalanceOf(assetAddress, address(this));
                 if(floatAmount >= withdrawalAmount) { // Withdrawing is done
                     break;
@@ -451,12 +494,8 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                 address strategyAssetAddress = IStrategy(withdrawalQueue[i]).underlyingAsset();
 
                 if(assetAddress == strategyAssetAddress) {
-                    uint256 needAmount = 
-                        withdrawalAmount - floatAmount > IStrategy(withdrawalQueue[i]).totalAssets() ?
-                        IStrategy(withdrawalQueue[i]).totalAssets()
-                        :
-                        withdrawalAmount - floatAmount;
-                    
+                    uint256 needAmount = Math.min(withdrawalAmount - floatAmount, IStrategy(withdrawalQueue[i]).totalAssets());
+
                     if(needAmount == 0) {
                         continue;
                     }
@@ -464,22 +503,20 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                     _redeemFromStrategy(withdrawalQueue[i], needAmount);
                 }
                 else { 
-                    uint256 needAmount = _estimateSwapInputAmount(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress);
+                    uint256 needAmount = Math.min(_estimateSwapInputAmount(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress), IStrategy(withdrawalQueue[i]).totalAssets());
+                    if(_estimateSwapOutputAmount(needAmount, strategyAssetAddress, assetAddress) == 0) {
+                        continue;
+                    }
 
-                    if(needAmount > IStrategy(withdrawalQueue[i]).totalAssets()) {
-                        needAmount =  IStrategy(withdrawalQueue[i]).totalAssets();
+                    _redeemFromStrategy(withdrawalQueue[i], needAmount);
+                    IERC20(strategyAssetAddress).approve(address(swapRouter), needAmount);
 
-                        if(_estimateSwapOutputAmount(needAmount, strategyAssetAddress, assetAddress) == 0) {
-                            continue;
-                        }
-                        _redeemFromStrategy(withdrawalQueue[i], needAmount);
-                        IERC20(strategyAssetAddress).approve(address(router), needAmount);
-                        _swapExactInput(needAmount, strategyAssetAddress, assetAddress, address(this));
+                    if(needAmount == _estimateSwapInputAmount(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress)) {
+                        _swapExactOutput(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress, address(this));
+
                     }
                     else {
-                        _redeemFromStrategy(withdrawalQueue[i], needAmount);
-                        IERC20(strategyAssetAddress).approve(address(router), needAmount);
-                        _swapExactOutput(withdrawalAmount - floatAmount, strategyAssetAddress, assetAddress, address(this));
+                        _swapExactInput(needAmount, strategyAssetAddress, assetAddress, address(this));
                     }
                 }
             }
@@ -493,13 +530,15 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
             }
         }
         
+        uint256 withdrawalSharePrice = sharePrice();
+
         if(_msgSender() != owner) {
             _spendAllowance(owner, _msgSender(), shareAmount);
         }
 
         _burn(owner, shareAmount);
         SafeERC20.safeTransfer(IERC20(assetAddress), receiver, withdrawalAmount);
-        emit Withdraw(msg.sender, receiver, owner, withdrawalAmount, shareAmount);
+        emit Withdraw(msg.sender, receiver, owner, withdrawalAmount, shareAmount, withdrawalSharePrice, block.timestamp);
 
         return shareAmount;
     }
@@ -514,7 +553,6 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
             currentPortfolioValue += assetValue(assets[i].assetAddress); 
         }
 
-        // SELL
         for(uint i=0; i < assets.length; i++){
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 continue;
@@ -525,20 +563,14 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
 
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                uint256 strategyAsset = IStrategy(strategies[assets[i].assetAddress]).totalAssets();
 
-                if(strategyAsset > sellAmount) {
-                    require(_redeemFromStrategy(strategies[assets[i].assetAddress], sellAmount), "Redeem Failed");
-                } else if(strategyAsset > 0) { 
-                    require(_redeemFromStrategy(strategies[assets[i].assetAddress], strategyAsset), "Redeem Failed");
-                }
+                require(_redeemFromStrategy(strategies[assets[i].assetAddress], Math.min(sellAmount, IStrategy(strategies[assets[i].assetAddress]).totalAssets())), "Redeem Failed");
 
-                IERC20(assets[i].assetAddress).approve(address(router), sellAmount);
+                IERC20(assets[i].assetAddress).approve(address(swapRouter), sellAmount);
                 _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
         }
 
-        // BUY
         for(uint i=0; i < assets.length; i++) {
             if(assets[i].assetAddress == _underlyingAssetAddress) {
                 continue;
@@ -552,7 +584,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
                 uint256 buyAmount = targetBalance - currentBalance;
                 uint256 amountInEstimated = _estimateSwapInputAmount(buyAmount, _underlyingAssetAddress, assets[i].assetAddress);
 
-                IERC20(_underlyingAssetAddress).approve(address(router), amountInEstimated);
+                IERC20(_underlyingAssetAddress).approve(address(swapRouter), amountInEstimated);
                 _swapExactOutput(buyAmount, _underlyingAssetAddress, assets[i].assetAddress, address(this));
             }
             uint256 newFloatBalance = assetFloatBalance(assets[i].assetAddress);
@@ -582,8 +614,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     }
 
     function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData) {
-        // check current weights allocated evenly?
-        upkeepNeeded = (!checkValidAllocation() || (lastRebalanced + rebalanceInterval < block.timestamp));
+        upkeepNeeded = (!checkValidAllocation() || (lastRebalanced + _rebalanceInterval < block.timestamp));
         return(upkeepNeeded, bytes(""));
     }
 
@@ -602,7 +633,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     } 
 
     function _depositIntoStrategy(address strategyAddress, uint256 assetAmount) private returns(bool){
-        require(isActive, "Product is disabled now");
+        if(!isActive) revert DisabledNow(isActive);
         address assetAddress = IStrategy(strategyAddress).underlyingAsset();
         SafeERC20.safeTransfer(IERC20(assetAddress), strategyAddress, assetAmount); // token, to, value
         return true;

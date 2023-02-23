@@ -12,11 +12,6 @@ contract Strategy is IStrategy {
     address _dacAddress;
     address _productAddress;
 
-    modifier onlyDac {
-        require(msg.sender == _dacAddress, "No permission");
-        _;
-    }
-
     modifier onlyProduct {
         require(msg.sender == _productAddress, "No permission");
         _;
@@ -45,11 +40,11 @@ contract Strategy is IStrategy {
     }
 
     function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) {
-        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount);
+        if(assetAmount > 0) SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount);
         return true;
     }
 
-    function withdrawAllToProduct() external onlyDac returns(bool) {
+    function withdrawAllToProduct() external onlyProduct returns(bool) {
         // If product is in activation state, Dac cannot call this method
         require(!IProduct(_productAddress).checkActivation(), "Product is active now");
         SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, totalAssets());

@@ -29,7 +29,9 @@ interface IProduct is IERC20, IERC20Metadata {
         address indexed sender,
         address indexed owner,
         uint256 assets,
-        uint256 shares
+        uint256 shares,
+        uint256 sharePrice,
+        uint256 time
     );
 
     ///@dev MUST be emitted when shares are withdrawn from the vault by a depositor in the withdraw methods.
@@ -38,7 +40,9 @@ interface IProduct is IERC20, IERC20Metadata {
         address indexed receiver,
         address indexed owner,
         uint256 assets,
-        uint256 share
+        uint256 share,
+        uint256 sharePrice,
+        uint256 time
     );
 
     ///@dev Must be emitted when rebalancing occure via the rebalance methods

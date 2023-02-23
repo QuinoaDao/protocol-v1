@@ -2,6 +2,7 @@ import * as utils from "./utils";
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { parseEther, parseUnits } from "ethers/lib/utils";
+const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 
 // Test 완료
 describe('Product Depoly Test', () => {
@@ -24,16 +25,6 @@ describe('Product Depoly Test', () => {
         dupStrategy
     } = await utils.depolyBadStrategy(signers[0], signers[1], product);
 
-    console.log('Product address', product.address);
-    console.log('Wmatic Strategy address', wmaticStrategy.address);
-    console.log('WETH Strategy address', wethStrategy.address);
-    console.log('Ghst Strategy address', ghstStrategy.address);
-    console.log('Quick Strategy address', quickStrategy.address);
-    console.log('USDC Strategy address', usdcStrategy.address);
-    console.log('USD Price Module address', usdPriceModule.address);
-    console.log('Non Dac Strategy address', nonDacStrategy.address);
-    console.log('Diff Asset Strategy address', diffAssetStrategy.address);
-    console.log('Dup Strategy address', dupStrategy.address);
   })
 
   it('Contracts constructor data test',async () => {
@@ -63,8 +54,6 @@ describe('Product Depoly Test', () => {
     expect(await product.currentFloatRatio()).equal(20000);
     expect(await product.currentDeviationThreshold()).equal(5000);
 
-    // sinceDate 확인
-    console.log(await product.sinceDate());
 
     // usdPriceModue 확인
     expect(await product.currentUsdPriceModule()).equal(usdPriceModule.address);
@@ -85,15 +74,12 @@ describe('Product Depoly Test', () => {
     } = await utils.deployContracts(signers[0]);
 
     // strategy 처음에 잘 비어있는지 확인(동작 확인)
-    console.log("current strategy state: ", await product.currentStrategies());
     expect(await product.checkStrategy(wmaticStrategy.address)).equal(false);
     expect(await product.checkStrategy(wethStrategy.address)).equal(false);
     expect(await product.checkStrategy(ghstStrategy.address)).equal(false);
     expect(await product.checkStrategy(quickStrategy.address)).equal(false);
     expect(await product.checkStrategy(usdcStrategy.address)).equal(false);
 
-    // withdrawal queue 처음에 잘 비어있는지 확인
-    console.log("current withdrawal queue state: ", await product.withdrawalQueue);
   })
 
   it('Strategy constructor test',async () => {
@@ -176,11 +162,9 @@ describe('Contract setting test', () => {
     expect(await product.checkAsset(utils.usdcAddress)).equal(true);
     expect(await product.checkAsset(utils.uniAddress)).equal(false);
 
-    // // weight 잘 들어가는지 test
-    // console.log(await product.currentAssets());
-    // tickers = {'MATIC':0.4, 'ETH': 0.2, 'GHST': 0.05, 'QUICK':0.05, 'USDC': 0.3}
+
     await product.updateWeight([utils.usdcAddress, utils.ghstAddress, utils.wmaticAddress, utils.wethAddress, utils.quickAddress], [30000, 5000, 40000, 20000, 5000]);
-    // console.log(await product.currentAssets());
+    console.log(await product.currentAssets());
 
     // strategy 잘 들어가는지 test
     await product.addStrategy(wmaticStrategy.address);
@@ -195,8 +179,6 @@ describe('Contract setting test', () => {
     expect(await product.checkStrategy(wethStrategy.address)).equal(true);
     expect(await product.checkStrategy(usdcStrategy.address)).equal(true);
 
-    // console.log(await product.currentStrategies());
-    // console.log([wmaticStrategy.address, ghstStrategy.address, quickStrategy.address, wethStrategy.address, usdcStrategy.address]);
     expect(await product.currentStrategies()).include(wmaticStrategy.address);
     expect(await product.currentStrategies()).include(ghstStrategy.address);
     expect(await product.currentStrategies()).include(quickStrategy.address);
@@ -205,14 +187,7 @@ describe('Contract setting test', () => {
 
     // withdrawal queue 잘 update 되는지 test
     await product.updateWithdrawalQueue([wmaticStrategy.address, wethStrategy.address, usdcStrategy.address, ghstStrategy.address, quickStrategy.address]);
-    /**
-    // current withdrawal queue function은 삭제함 - public이라서 필요 X
-    // expect((await product.currentWithdrawalQueue())[0]).equal(wmaticStrategy.address);
-    // expect((await product.currentWithdrawalQueue())[1]).equal(wethStrategy.address);
-    // expect((await product.currentWithdrawalQueue())[2]).equal(usdcStrategy.address);
-    // expect((await product.currentWithdrawalQueue())[3]).equal(ghstStrategy.address);
-    // expect((await product.currentWithdrawalQueue())[4]).equal(quickStrategy.address);
-    */
+
   })
 
 })
@@ -235,8 +210,8 @@ describe('Product update functions test', () => {
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
     await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
-    expect(product.updateUsdPriceModule(ethers.constants.AddressZero)).to.be.revertedWith('Invalid USD price module');
-    expect(product.updateUsdPriceModule(usdPriceModule.address)).to.be.revertedWith('Duplicated Vaule input');
+    expect(product.updateUsdPriceModule(ethers.constants.AddressZero)).to.be.revertedWithCustomError(product, "ZeroAddress");
+    expect(product.updateUsdPriceModule(usdPriceModule.address)).to.be.revertedWithCustomError(product, "DuplicatedValue");
     expect(product.connect(signers[1]).updateUsdPriceModule(ethers.constants.AddressZero)).to.be.revertedWith('Only dac can access');
     await product.updateUsdPriceModule(signers[1].address);
     expect(await product.currentUsdPriceModule()).equal(signers[1].address);
@@ -257,9 +232,9 @@ describe('Product update functions test', () => {
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
     await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
-    expect(product.updateFloatRatio(100000000000)).to.be.revertedWith("Invalid float ratio");
-    expect(product.updateFloatRatio(-3)).to.be.revertedWith("Invalid float ratio");
-    expect(product.updateFloatRatio(20000)).to.be.revertedWith('Duplicated Vaule input');
+    expect(product.updateFloatRatio(100000000000)).to.be.revertedWithCustomError(product, "OutOfRange");
+    expect(product.updateFloatRatio(-3)).to.be.revertedWithCustomError(product, "OutOfRange");
+    expect(product.updateFloatRatio(20000)).to.be.revertedWithCustomError(product, "DuplicatedValue");
     expect(product.connect(signers[1]).updateFloatRatio(15000)).to.be.revertedWith('Only dac can access');
     await product.updateFloatRatio(15000);
     expect(await product.currentFloatRatio()).equal(15000);
@@ -277,9 +252,9 @@ describe('Product update functions test', () => {
     } = await utils.deployContracts(signers[0]);
     await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
-    expect(product.updateDeviationThreshold(100000000000)).to.be.revertedWith("Invalid Rebalance Threshold");
-    expect(product.updateDeviationThreshold(-3)).to.be.revertedWith("Invalid Rebalance Threshold");
-    expect(product.updateDeviationThreshold(5000)).to.be.revertedWith('Duplicated Vaule input');
+    expect(product.updateDeviationThreshold(100000000000)).to.be.revertedWithCustomError(product, "OutOfRange");
+    expect(product.updateDeviationThreshold(-3)).to.be.revertedWithCustomError(product, "OutOfRange");
+    expect(product.updateDeviationThreshold(5000)).to.be.revertedWithCustomError(product, "DuplicatedValue");
     expect(product.connect(signers[1]).updateDeviationThreshold(3000)).to.be.revertedWith('Only dac can access');
     await product.updateDeviationThreshold(3000);
     expect(await product.currentDeviationThreshold()).equal(3000);
@@ -297,10 +272,9 @@ describe('Product update functions test', () => {
     } = await utils.deployContracts(signers[0]);
 
     expect(product.connect(signers[1]).updateWithdrawalQueue([wethStrategy.address, usdcStrategy.address])).to.be.revertedWith('Only dac can access');
-    expect(product.updateWithdrawalQueue([wmaticStrategy.address, wethStrategy.address, usdcStrategy.address, ghstStrategy.address, quickStrategy.address])).to.be.revertedWith('Too many elements');
-    expect(product.updateWithdrawalQueue([quickStrategy.address])).to.be.revertedWith("Strategy doesn't exist");
+    expect(product.updateWithdrawalQueue([wmaticStrategy.address, wethStrategy.address, usdcStrategy.address, ghstStrategy.address, quickStrategy.address])).to.be.revertedWithCustomError(product, "ErrorWithMsg").withArgs(anyValue, "TooManyElements");
+    expect(product.updateWithdrawalQueue([quickStrategy.address])).to.be.revertedWithCustomError(product, "NotFound");
 
-    // console.log(await product.currentWithdrawalQueue());
     await product.addAsset(utils.ghstAddress);
     await product.addAsset(utils.quickAddress);
     await product.addStrategy(wmaticStrategy.address);
@@ -309,12 +283,6 @@ describe('Product update functions test', () => {
     await product.addStrategy(wethStrategy.address);
     await product.addStrategy(usdcStrategy.address);
     await product.updateWithdrawalQueue([wmaticStrategy.address, wethStrategy.address, usdcStrategy.address]);
-
-    // let currentWithdrawalQueue = await product.currentWithdrawalQueue();
-    // expect(currentWithdrawalQueue).include(wmaticStrategy.address);
-    // expect(currentWithdrawalQueue).include(wethStrategy.address);
-    // expect(currentWithdrawalQueue).include(usdcStrategy.address);
-    // console.log(await product.currentWithdrawalQueue());
 
   })
 
@@ -325,15 +293,13 @@ describe('Product update functions test', () => {
     } = await utils.deployContracts(signers[0]);
 
     expect(product.connect(signers[1]).updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [30000, 40000, 30000])).to.be.revertedWith('Only dac can access');
-    expect(product.updateWeight([utils.usdcAddress, utils.wethAddress], [30000, 40000, 30000])).to.be.revertedWith('Invalid weight pair');
-    expect(product.updateWeight([utils.usdcAddress, utils.ghstAddress, utils.wmaticAddress, utils.wethAddress, utils.quickAddress], [30000, 5000, 40000, 20000, 5000])).to.be.revertedWith('Asset not found');
-    expect(product.updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [130000, 140000, 130000])).to.be.revertedWith('Invalid asset target weight');
-    expect(product.updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [40000, 40000, 40000])).to.be.revertedWith('Sum of asset weights is not 100%');
-    expect(product.updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [30000, 30000, 30000])).to.be.revertedWith('Sum of asset weights is not 100%');
+    expect(product.updateWeight([utils.usdcAddress, utils.wethAddress], [30000, 40000, 30000])).to.be.revertedWithCustomError(product, "ErrorWithMsg").withArgs(anyValue, "pairConflict");
+    expect(product.updateWeight([utils.usdcAddress, utils.ghstAddress, utils.wmaticAddress, utils.wethAddress, utils.quickAddress], [30000, 5000, 40000, 20000, 5000])).to.be.revertedWithCustomError(product, "NotFound");
+    expect(product.updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [130000, 140000, 130000])).to.be.revertedWithCustomError(product,"OutOfRange");
+    expect(product.updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [40000, 40000, 40000])).to.be.revertedWithCustomError(product,"OutOfRange");
+    expect(product.updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [30000, 30000, 30000])).to.be.revertedWithCustomError(product,"OutOfRange");
 
-    console.log(await product.currentAssets());
     await product.updateWeight([utils.usdcAddress,utils.wmaticAddress, utils.wethAddress], [30000, 40000, 30000]);
-    console.log(await product.currentAssets());
   })
 
 })
@@ -349,8 +315,8 @@ describe('Product add functions test', () => {
     // await setUsdPriceModule(usdPriceModule);
     // await setProduct(product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
-    expect(product.addAsset(ethers.constants.AddressZero)).to.be.revertedWith("Invalid asset address");
-    expect(product.addAsset(utils.usdcAddress)).to.be.revertedWith("Asset Already Exists");
+    expect(product.addAsset(ethers.constants.AddressZero)).to.be.revertedWithCustomError(product, "ZeroAddress");
+    expect(product.addAsset(utils.usdcAddress)).to.be.revertedWithCustomError(product, "DuplicatedValue");
     expect(product.connect(signers[1]).addAsset(utils.usdcAddress)).to.be.revertedWith("Only dac can access");
   })
 
@@ -367,13 +333,13 @@ describe('Product add functions test', () => {
         dupStrategy
     } = await utils.depolyBadStrategy(signers[0], signers[1], product);
 
-    expect(product.addStrategy(ethers.constants.AddressZero)).to.be.revertedWith("Invalid Strategy address");
+    expect(product.addStrategy(ethers.constants.AddressZero)).to.be.revertedWithCustomError(product, "ZeroAddress");
     expect(product.connect(signers[1]).addStrategy(usdcStrategy.address)).to.be.revertedWith("Only dac can access");
-    expect(product.addStrategy(quickStrategy.address)).to.be.revertedWith("Asset Doesn't Exist");
-    expect(product.addStrategy(nonDacStrategy.address)).to.be.revertedWith("DAC conflict");
+    expect(product.addStrategy(quickStrategy.address)).to.be.revertedWithCustomError(product, "NotFound");
+    expect(product.addStrategy(nonDacStrategy.address)).to.be.revertedWithCustomError(product, "ErrorWithMsg").withArgs(anyValue, "strategyDacConflict");
 
     await product.addStrategy(wmaticStrategy.address);
-    expect(product.addStrategy(dupStrategy.address)).to.be.revertedWith("Strategy already exist");
+    expect(product.addStrategy(dupStrategy.address)).to.be.revertedWithCustomError(product, "DuplicatedValue");
   })
 
 })
@@ -484,14 +450,14 @@ describe('Product balance/price functions test', () => {
     await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
     // product에 돈 0원 있을 때
-    expect(product.assetFloatBalance(utils.uniAddress)).to.be.revertedWith("Asset Doesn't Exist");
+    expect(product.assetFloatBalance(utils.uniAddress)).to.be.revertedWithCustomError(product, "NotFound");
     expect(await product.assetFloatBalance(utils.usdcAddress)).equal(0);
     expect(await product.assetFloatBalance(utils.wmaticAddress)).equal(0);
     expect(await product.assetFloatBalance(utils.quickAddress)).equal(0);
     expect(await product.assetFloatBalance(utils.ghstAddress)).equal(0);
     expect(await product.assetFloatBalance(utils.wethAddress)).equal(0);
 
-    expect(product.assetBalance(utils.uniAddress)).to.be.revertedWith("Asset Doesn't Exist");
+    expect(product.assetBalance(utils.uniAddress)).to.be.revertedWithCustomError(product, "NotFound");
     expect(await product.assetBalance(utils.usdcAddress)).equal(0);
     expect(await product.assetBalance(utils.wmaticAddress)).equal(0);
     expect(await product.assetBalance(utils.quickAddress)).equal(0);
@@ -516,14 +482,14 @@ describe('Product balance/price functions test', () => {
     expect(await product.portfolioValue()).equal(0);
     expect(await product.totalFloatValue()).equal(0);
 
-    expect(product.assetValue(utils.uniAddress)).to.be.revertedWith("Asset Doesn't Exist");
+    expect(product.assetValue(utils.uniAddress)).to.be.revertedWithCustomError(product, "NotFound");
     expect(await product.assetValue(utils.usdcAddress)).equal(0);
     expect(await product.assetValue(utils.wmaticAddress)).equal(0);
     expect(await product.assetValue(utils.quickAddress)).equal(0);
     expect(await product.assetValue(utils.ghstAddress)).equal(0);
     expect(await product.assetValue(utils.wethAddress)).equal(0);
 
-    expect(product.assetFloatValue(utils.uniAddress)).to.be.revertedWith("Asset Doesn't Exist");
+    expect(product.assetFloatValue(utils.uniAddress)).to.be.revertedWithCustomError(product, "NotFound");
     expect(await product.assetFloatValue(utils.usdcAddress)).equal(0);
     expect(await product.assetFloatValue(utils.wmaticAddress)).equal(0);
     expect(await product.assetFloatValue(utils.quickAddress)).equal(0);
