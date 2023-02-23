@@ -1,7 +1,6 @@
 import * as utils from "./utils";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { expect } from "chai";
 
 describe("scenario 1",async () => {
     it('rebalancing 1번, quick/ghst 미포함',async () => {
