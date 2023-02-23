@@ -137,6 +137,9 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         swapRouter = IUniswapV2Router02(swapRouter_);
 
         _rebalanceInterval = 1 days; 
+
+        /// FOR TEST
+        _rebalanceInterval = 6 hours; 
     }
 
     function currentStrategies() public view override returns(address[] memory) {
