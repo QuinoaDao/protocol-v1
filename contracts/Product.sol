@@ -415,13 +415,14 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         require(depositValue < maxDepositValue(_msgSender()), "Too much deposit");
 
         uint256 shareAmount = _valueToShares(depositValue);
+        uint256 depositSharePrice = sharePrice();
         require(shareAmount > 0, "short of deposit");
 
         SafeERC20.safeTransferFrom(IERC20(assetAddress), _msgSender(), address(this), assetAmount);
 
         _mint(receiver, shareAmount);
 
-        emit Deposit(_msgSender(), receiver, assetAmount, shareAmount);
+        emit Deposit(_msgSender(), receiver, assetAmount, shareAmount, depositSharePrice, block.timestamp);
         return shareAmount;
     }
 
@@ -529,13 +530,15 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
             }
         }
         
+        uint256 withdrawalSharePrice = sharePrice();
+
         if(_msgSender() != owner) {
             _spendAllowance(owner, _msgSender(), shareAmount);
         }
 
         _burn(owner, shareAmount);
         SafeERC20.safeTransfer(IERC20(assetAddress), receiver, withdrawalAmount);
-        emit Withdraw(msg.sender, receiver, owner, withdrawalAmount, shareAmount);
+        emit Withdraw(msg.sender, receiver, owner, withdrawalAmount, shareAmount, withdrawalSharePrice, block.timestamp);
 
         return shareAmount;
     }
