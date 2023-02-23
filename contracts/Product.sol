@@ -385,7 +385,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         emit ActivateProduct(_msgSender(), block.timestamp);
     }
 
-    function deactivateProduct() external onlyDac {
+    function deactivateProduct() public onlyDac {
         if(!isActive) revert DisabledNow(isActive);
 
         isActive = false;
@@ -427,7 +427,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     }
 
     function emergencyWithdraw() external onlyDac {
-        if(isActive) isActive = false;
+        if(isActive) deactivateProduct();
 
         for(uint i=0; i<assets.length; i++){
             if(strategies[assets[i].assetAddress] != address(0x0)) { 
