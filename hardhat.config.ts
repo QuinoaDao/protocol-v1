@@ -2,6 +2,8 @@ import * as dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-contract-sizer";
+import "@nomiclabs/hardhat-etherscan";
+
 
 dotenv.config();
 
@@ -25,6 +27,8 @@ const PRODUCT_OPTIMIZER = {
   },
 }
 
+
+
 const config: HardhatUserConfig = {
   mocha: {
     timeout: 100000000
@@ -38,10 +42,16 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      accounts: {
-        count: 301,
-        mnemonic: "test test test test test test test test test test test junk",
-      },
+      accounts: [
+        {
+          privateKey: process.env.TEST_ACC1, 
+          balance: "10000000"
+        },
+        {
+          privateKey: process.env.TEST_ACC2, 
+          balance: "10000000"
+        }
+      ],
       // chainId: 1337,
       chainId: 137, // MATIC FORK
       forking: {
@@ -52,9 +62,7 @@ const config: HardhatUserConfig = {
     },
     matic: {
       url: process.env.MATIC_URL || "https://polygon-rpc.com/",
-      accounts: {
-        mnemonic: "test test test test test test test test test test test junk",
-      },
+      accounts: [process.env.PRIVATE_KEY || "", process.env.TEST_ACC2 || ""]
     },
     mumbai : {
       url: "https://rpc-mumbai.maticvigil.com/",
