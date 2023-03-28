@@ -61,7 +61,6 @@ describe("rebalance test 2",async () => {
             depositValues_1.push(depositValue);
             depositAddresses_1.push(depositAddress);
 
-            console.log("deposit first", i);
         }
 
         const assetAddresses = [utils.wmaticAddress, utils.wethAddress, utils.usdcAddress, utils.quickAddress, utils.ghstAddress]; 
@@ -102,10 +101,6 @@ describe("rebalance test 2",async () => {
             withdrawValues_1.push(userWithdrawValue);
             withdrawalAddresses_1.push(withdrawalAddress);
 
-            // console.log("signer[", i, "] withdraw complete");
-            // console.log("signer withdraw token address: ", withdrawalAddress);
-            // console.log("-----------------------------------------------------------------------------------")
-            console.log("withdraw first", i);
         }
 
         console.log("\nbefore_rebalance_portfolio_value,",(await product.portfolioValue()).toString());
@@ -141,7 +136,6 @@ describe("rebalance test 2",async () => {
             depositValues_2.push(depositValue);
             depositAddresses_2.push(depositAddress);
 
-            console.log("deposit second", i);
         }
         
         console.log("\nbefore_rebalance_portfolio_value,",(await product.portfolioValue()).toString());
@@ -177,10 +171,6 @@ describe("rebalance test 2",async () => {
             withdrawValues_2.push(userWithdrawValue);
             withdrawalAddresses_2.push(withdrawalAddress);
 
-            // console.log("signer[", i, "] withdraw complete");
-            // console.log("signer withdraw token address: ", withdrawalAddress);
-            // console.log("-----------------------------------------------------------------------------------")
-            console.log("withdraw second", i);
         }
 
         console.log("\nbefore_rebalance_portfolio_value, ",(await product.portfolioValue()).toString());
@@ -207,24 +197,6 @@ describe("rebalance test 2",async () => {
             if(withdrawValues_1[i-2] == undefined) console.log('signer[', i, '] withdraw value: ', withdrawValues_2[i-2]);
             else console.log('signer[', i, '] withdraw value: ', (withdrawValues_1[i-2]).add(withdrawValues_2[i-2]));
         }
-
-        console.log("-------------------------------------------------------------------------------");
-
-        // console.log('final product status is ...');
-        // console.log("before activation portfolio value: ", productInitialPortfolioValue);
-        // console.log("after reblance portfolio value: ", await product.portfolioValue());
-        // console.log('*');
-        // console.log("wmatic value: ", await product.assetValue(utils.wmaticAddress));
-        // console.log("weth value: ", await product.assetValue(utils.wethAddress));
-        // console.log("usdc value: ", await product.assetValue(utils.usdcAddress));
-        // console.log("quick value: ", await product.assetValue(utils.quickAddress));
-        // console.log("ghst value: ", await product.assetValue(utils.ghstAddress));
-        // console.log('*');
-        // console.log("wmatic balance: ", await product.assetBalance(utils.wmaticAddress));
-        // console.log("weth balance: ", await product.assetBalance(utils.wethAddress));
-        // console.log("usdc balance: ", await product.assetBalance(utils.usdcAddress));
-        // console.log("quick balance: ", await product.assetBalance(utils.quickAddress));
-        // console.log("ghst balance: ", await product.assetBalance(utils.ghstAddress));
         
         console.log("-------------------------------------------------------------------------------")
 

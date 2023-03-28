@@ -75,7 +75,6 @@ describe("rebalance 없는 버전 테스트",async () => {
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
 
-            console.log("deposit, ", i);
         }
 
         let productPortfolioValue_2 = (await product.portfolioValue()).toString();
@@ -116,7 +115,6 @@ describe("rebalance 없는 버전 테스트",async () => {
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawAddress, (await withdrawContract.balanceOf(signers[i].address)).sub(beforeUserBalance));
 
             assetValue_withdraw.push((userWithdrawValue).toString());
-            console.log("withdraw, ", i);
         }
 
 

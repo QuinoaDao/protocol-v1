@@ -25,7 +25,7 @@ contract UsdPriceModule is IUsdPriceModule, Ownable {
     }
 
     ///@dev returns 8 decimals
-    function getLatestPrice(address _asset) internal view returns(uint256) {
+    function _getLatestPrice(address _asset) internal view returns(uint256) {
         require(priceFeeds[_asset] != address(0), "Unsupported token");
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeeds[_asset]);
         (, int price, , , ) = priceFeed.latestRoundData();
@@ -44,7 +44,7 @@ contract UsdPriceModule is IUsdPriceModule, Ownable {
 
     ///@notice returns 18 decimals
     function getAssetUsdValue(address _asset, uint256 _amount) public view override returns(uint256) {
-        uint256 assetPrice = getLatestPrice(_asset);
+        uint256 assetPrice = _getLatestPrice(_asset);
         uint256 assetDecimals = IERC20Metadata(_asset).decimals();
         if(assetDecimals < 10) { 
             return assetPrice * _amount * (10**(10-assetDecimals));
@@ -58,7 +58,7 @@ contract UsdPriceModule is IUsdPriceModule, Ownable {
     }
 
     function convertAssetBalance(address _asset, uint256 _value) public view override returns(uint256) {
-        uint256 targetPrice = getLatestPrice(_asset); // 8 decimal
+        uint256 targetPrice = _getLatestPrice(_asset); // 8 decimal
         uint256 targetAssetDecimals = IERC20Metadata(_asset).decimals(); 
 
         if(targetAssetDecimals < 10) { 

@@ -78,7 +78,6 @@ describe("scenario 3",async () => {
             await depositContract.connect(signers[i]).approve(product.address, depositBalance);
             await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
 
-            console.log("deposit: ", i);
         }
 
         let productPortfolioValue_2 = (await product.portfolioValue()).toString();
@@ -129,8 +128,6 @@ describe("scenario 3",async () => {
         let user_estimatedWithdraw = ["0"];
 
 
-        console.log("USER,TOKEN_PAIR,DEPOSIT,SHARE,WITHDRAW,ESTIMATED");
-        // console.log("signer_num wmatic_balance weth_balance usdc_balance ghst_balance quick_balance total_value");
         for (let i=1; i<301; i++) {
             let withdrawAddress = assetChoices_withdraw[i];
             let withdrawContract = assetContracts_withdraw[i];
@@ -145,7 +142,6 @@ describe("scenario 3",async () => {
 
             assetValue_withdraw.push((userWithdrawValue).toString());
 
-            console.log(i, assetChoices_deposit[i], "-", assetChoices_withdraw[i], user_shareBalance[i],assetValue_deposit[i], assetValue_withdraw[i], user_estimatedWithdraw[i]);
         }
 
 

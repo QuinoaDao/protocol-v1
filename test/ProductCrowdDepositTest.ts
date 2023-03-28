@@ -46,8 +46,20 @@ describe("wMatic token deposit & random token withdraw test",async () => {
             await utils.setWhitelists([signers[i]], whitelistRegistry, product.address);
 
             await wMaticContract.connect(signers[i]).approve(product.address, ethers.utils.parseEther("60"));
-            await product.connect(signers[i]).deposit(utils.wmaticAddress, ethers.utils.parseEther("30"), signers[i].address);
-            await product.connect(signers[i]).deposit(utils.wmaticAddress, ethers.utils.parseEther("30"), signers[i].address);
+            let tx1 = await (await product.connect(signers[i]).deposit(utils.wmaticAddress, ethers.utils.parseEther("30"), signers[i].address)).wait();
+            let tx2 = await (await product.connect(signers[i]).deposit(utils.wmaticAddress, ethers.utils.parseEther("30"), signers[i].address)).wait();
+
+            let tx1Args = tx1.events ? tx1.events[2].args : undefined;
+            let tx2Args = tx2.events ? tx2.events[2].args : undefined;
+
+            console.log("signers[", i, "] deposit complete");
+            console.log("real deposit value: ", oneUserDepositValue);
+
+            if(tx1Args != undefined && tx2Args != undefined) {
+                console.log("event logging value: ", (tx1Args[3].mul(tx1Args[4].div(parseEther("1")))).add(tx2Args[3].mul(tx2Args[4].div(parseEther("1")))));
+            }
+
+            console.log("--");
 
             expect(await product.balanceOf(signers[i].address)).equal(oneUserShareBalance);
 
@@ -85,8 +97,19 @@ describe("wMatic token deposit & random token withdraw test",async () => {
 
             productWithdrawShareBalance = await product.totalSupply();
 
-            await product.connect(signers[i]).withdraw(withdrawalAddress, ethers.constants.MaxUint256, signers[i].address, signers[i].address);
+            let tx = await (await product.connect(signers[i]).withdraw(withdrawalAddress, ethers.constants.MaxUint256, signers[i].address, signers[i].address)).wait();
             let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawalAddress, (await withdrawalContract.balanceOf(signers[i].address)).sub(beforeWithdrawalBalance));
+
+            let txArgs = tx.events ? tx.events[tx.events.length - 1].args : undefined;
+
+            console.log("signers[", i, "] withdraw complete");
+            console.log("real withdra value: ", userWithdrawValue);
+
+            if(txArgs != undefined) {
+                console.log("event logging value: ", (txArgs[4].mul(txArgs[5])).div(parseEther("1")));
+            }
+
+            console.log("--");
 
             expect(productWithdrawShareBalance.sub(oneUserShareBalance)).equal(await product.totalSupply());
 

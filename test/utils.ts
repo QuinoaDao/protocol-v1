@@ -8,7 +8,7 @@ import usdcAbi from "../abis/usdcABI.json";
 import wEthAbi from "../abis/wEthABI.json";
 import quickAbi from "../abis/quickABI.json";
 import ghstAbi from "../abis/ghstABI.json";
-import quickSwapAbi from "../abis/quickSwapABI.json";
+import quickSwapAbi from "../abis/quickSwapRouterABI.json";
 import { parseEther, parseUnits } from "ethers/lib/utils";
 
 export {wMaticAbi, usdcAbi, wEthAbi, quickAbi, ghstAbi, quickSwapAbi};
@@ -284,7 +284,6 @@ export async function distributionTokens(signers: SignerWithAddress[]) {
         await wMaticContract.connect(val).approve(quickSwapRouter, amountIn);
         await swapContract.connect(val).swapTokensForExactTokens(amountOut, amountIn, path, val.address, Date.now() + 10000*60, {gasLimit: 251234});
 
-        console.log("distribution: ", cnt);
         cnt+=1;
     }
 
