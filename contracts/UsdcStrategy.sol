@@ -62,7 +62,7 @@ contract UsdcStrategy is IStrategy {
         return 0;
     }
 
-    function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) {
+    function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) { 
         return true;
     }
 
