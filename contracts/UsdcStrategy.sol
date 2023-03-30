@@ -67,6 +67,11 @@ contract UsdcStrategy is IStrategy {
     }
 
     function withdrawAllToProduct() external onlyProduct returns(bool) {
+        // withdraw all moo & stargate tokens and transfer usdc tokens to product contracts
+        require(!IProduct(_productAddress).checkActivation(), "Product is active now");
+        IBeefyVault(beefyVault).withdraw(_balanceOfAssets(beefyVault)); // withdraw all moo star usdc tokens
+        IStargateRouter(stargateRouter).instantRedeemLocal(stargatePoolId, _balanceOfAssets(stargatePool), address(this)); // withdraw all star usdc tokens
+        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, totalAssets()); // transfer all usdc tokens
         return true;
     }
 }
