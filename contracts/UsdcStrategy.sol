@@ -14,11 +14,11 @@ contract UsdcStrategy is IStrategy {
     address _dacAddress;
     address _productAddress;
     address immutable _underlyingAsset;
-
-    address constant beefyVault = address(0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95); // polygon sUsdc beefy vault == moo stargate usdc token address
-    address constant stargatePool = address(0x1205f31718499dBf1fCa446663B532Ef87481fe1); // polygon stargate usdc pool == stargate usdc pool token address
-    address constant stargateRouter = address(0x45A01E4e04F14f7A4a6702c74187c5F6222033cd); // polygon stargate router
-    uint256 constant stargatePoolId = 1;
+    
+    IBeefyVault beefyVault;
+    IStargateRouter stargateRouter;
+    IStargatePool stargatePool;
+    uint16 stargatePoolId;
 
     modifier onlyProduct {
         require(msg.sender == _productAddress, "No permission: only product");
@@ -37,6 +37,12 @@ contract UsdcStrategy is IStrategy {
         _dacAddress = dacAddress_;
         require(productAddress_ != address(0x0), "Invalid product address");
         _productAddress = productAddress_;
+
+        // stargate & beefy setting
+        beefyVault = IBeefyVault(0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95);
+        stargateRouter = IStargateRouter(0x45A01E4e04F14f7A4a6702c74187c5F6222033cd);
+        stargatePool = IStargatePool(0x1205f31718499dBf1fCa446663B532Ef87481fe1);
+        stargatePoolId = 1;
     }
 
     function dacAddress() public view override returns(address) {
@@ -47,19 +53,15 @@ contract UsdcStrategy is IStrategy {
         return _underlyingAsset;
     }
 
-    function _balanceOfAssets(address assetAddress) internal view returns(uint256) {
-        IERC20(assetAddress).balanceOf(address(this));
-    }
-
     function depositToDelegate() external override onlyDac returns(bool) { 
-        uint256 underlyingBal = _balanceOfAssets(_underlyingAsset);
-        if(underlyingBal > 0) {
-            IStargateRouter(stargateRouter).addLiquidity(stargatePoolId, underlyingBal, address(this));
+        uint256 underlyingAmount = _availableUnderlyings();
+        if(underlyingAmount > 0) {
+            stargateRouter.addLiquidity(stargatePoolId, underlyingAmount, address(this));
         }
 
-        uint256 starBal = _balanceOfAssets(stargatePool);
-        if(starBal > 0) {
-            IBeefyVault(beefyVault).deposit(starBal);
+        uint256 starAmount = stargatePool.balanceOf(address(this));
+        if(starAmount > 0) {
+            beefyVault.depositAll();
         } 
         else {
             revert("theres no available token balances");
@@ -69,44 +71,38 @@ contract UsdcStrategy is IStrategy {
     }
 
     function totalAssets() public view override returns(uint256) {
-        uint256 totalAmount = _balanceOfAssets(_underlyingAsset);
-        uint256 mooAmount = _balanceOfAssets(beefyVault);
-        uint256 starAmount = _balanceOfAssets(stargatePool);
+        uint256 totalAmount = _availableUnderlyings();
+        uint256 mooAmount = beefyVault.balanceOf(address(this));
+        uint256 starAmount = stargatePool.balanceOf(address(this));
 
         // 1. moo token => star usdc token
-        starAmount += mooAmount.mul(IBeefyVault(beefyVault).balance()).div(IBeefyVault(beefyVault).totalSupply()); 
+        starAmount += mooAmount * beefyVault.balance() / beefyVault.totalSupply();
 
         // 2. star usdc token => usdc token
-        totalAmount += IStargatePool(stargatePool).amountLPtoLD(starAmount);
+        totalAmount += stargatePool.amountLPtoLD(starAmount);
 
         return totalAmount;
     }
 
-    function _calcUnderlyingToMoo(uint256 _underlying) internal returns(uint256) {
-        // usdc -> star -> moo
-        uint256 neededStar = _underlying.mul(IStargatePool(stargatePool).totalSupply).div(IStargatePool(stargatePool).totalLiquidity);
-        uint256 neededMoo = neededStar.mul(IBeefyVault(beefyVault).totalSupply()).div(IBeefyVault(beefyVault).balance());
-        return neededMoo;
-    }
-
     function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) { 
-        uint256 availableAmount = _balanceOfAssets(_underlyingAsset);
+        uint256 availableAmount = _availableUnderlyings();
         
         if (availableAmount < assetAmount) {
             uint256 neededAmount = assetAmount - availableAmount; 
             uint256 neededMoo = _calcUnderlyingToMoo(neededAmount); 
-            if(neededMoo > _balanceOfAssets(beefyVault)) {
-                neededMoo = _balanceOfAssets(beefyVault);
+
+            if(neededMoo > beefyVault.balanceOf(address(this))) {
+                neededMoo = beefyVault.balanceOf(address(this));
             }
 
             // beefy withdraw
-            IBeefyVault(beefyVault).withdraw(neededMoo);
+            beefyVault.withdraw(neededMoo);
 
             // stargate withdraw
-            IStargateRouter(stargateRouter).instantRedeemLocal(stargatePoolId, _balanceOfAssets(stargatePool), address(this));
+            stargateRouter.instantRedeemLocal(stargatePoolId, stargatePool.balanceOf(address(this)), address(this));
 
-            uint256 diffAmount = _balanceOfAssets(_underlyingAsset) - availableAmount;
-            if(diffAmount < neededAmount) { 
+            uint256 diffAmount = _availableUnderlyings() - availableAmount;
+            if(diffAmount < neededAmount) {
                 assetAmount = diffAmount + availableAmount;
             }
         }
@@ -120,9 +116,21 @@ contract UsdcStrategy is IStrategy {
     function withdrawAllToProduct() external onlyProduct returns(bool) {
         // withdraw all moo & stargate tokens and transfer usdc tokens to product contracts
         require(!IProduct(_productAddress).checkActivation(), "Product is active now");
-        IBeefyVault(beefyVault).withdraw(_balanceOfAssets(beefyVault)); // withdraw all moo star usdc tokens
-        IStargateRouter(stargateRouter).instantRedeemLocal(stargatePoolId, _balanceOfAssets(stargatePool), address(this)); // withdraw all star usdc tokens
-        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, totalAssets()); // transfer all usdc tokens
+        beefyVault.withdrawAll(); // withdraw all moo star usdc tokens
+        stargateRouter.instantRedeemLocal(stargatePoolId, stargatePool.balanceOf(address(this)), address(this)); // withdraw all star usdc tokens
+        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, _availableUnderlyings()); // transfer all usdc tokens
         return true;
     }
+
+    function _availableUnderlyings() internal view returns(uint256) {
+        return IERC20(_underlyingAsset).balanceOf(address(this));
+    }
+    
+    function _calcUnderlyingToMoo(uint256 _underlying) internal view returns(uint256) {
+        // usdc -> star -> moo
+        uint256 neededStar = _underlying * stargatePool.totalSupply() / stargatePool.totalLiquidity();
+        uint256 neededMoo = neededStar * beefyVault.totalSupply() / beefyVault.balance();
+        return neededMoo;
+    }
+
 }
