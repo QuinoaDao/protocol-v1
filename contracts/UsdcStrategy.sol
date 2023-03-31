@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import "./IStrategy.sol";
 import "./IProduct.sol";
 import "./interfaces/IStargateRouter.sol";
+import "./interfaces/IStargatePool.sol";
 import "./interfaces/IBeefyVault.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -14,8 +15,6 @@ contract UsdcStrategy is IStrategy {
     address _productAddress;
     address immutable _underlyingAsset;
 
-    // internal constant state variables
-    // network: polygon(chainId: 109)
     address constant beefyVault = address(0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95); // polygon sUsdc beefy vault == moo stargate usdc token address
     address constant stargatePool = address(0x1205f31718499dBf1fCa446663B532Ef87481fe1); // polygon stargate usdc pool == stargate usdc pool token address
     address constant stargateRouter = address(0x45A01E4e04F14f7A4a6702c74187c5F6222033cd); // polygon stargate router
@@ -53,16 +52,68 @@ contract UsdcStrategy is IStrategy {
     }
 
     function depositToDelegate() external override onlyDac returns(bool) { 
-        IStargateRouter(stargateRouter).addLiquidity(stargatePoolId, _balanceOfAssets(_underlyingAsset), address(this)); // token decimal is 6
-        IBeefyVault(beefyVault).deposit(_balanceOfAssets(stargatePool)); // token decimal is 6
+        uint256 underlyingBal = _balanceOfAssets(_underlyingAsset);
+        if(underlyingBal > 0) {
+            IStargateRouter(stargateRouter).addLiquidity(stargatePoolId, underlyingBal, address(this));
+        }
+
+        uint256 starBal = _balanceOfAssets(stargatePool);
+        if(starBal > 0) {
+            IBeefyVault(beefyVault).deposit(starBal);
+        } 
+        else {
+            revert("theres no available token balances");
+        }
+
         return true;
     }
 
     function totalAssets() public view override returns(uint256) {
-        return 0;
+        uint256 totalAmount = _balanceOfAssets(_underlyingAsset);
+        uint256 mooAmount = _balanceOfAssets(beefyVault);
+        uint256 starAmount = _balanceOfAssets(stargatePool);
+
+        // 1. moo token => star usdc token
+        starAmount += mooAmount.mul(IBeefyVault(beefyVault).balance()).div(IBeefyVault(beefyVault).totalSupply()); 
+
+        // 2. star usdc token => usdc token
+        totalAmount += IStargatePool(stargatePool).amountLPtoLD(starAmount);
+
+        return totalAmount;
+    }
+
+    function _calcUnderlyingToMoo(uint256 _underlying) internal returns(uint256) {
+        // usdc -> star -> moo
+        uint256 neededStar = _underlying.mul(IStargatePool(stargatePool).totalSupply).div(IStargatePool(stargatePool).totalLiquidity);
+        uint256 neededMoo = neededStar.mul(IBeefyVault(beefyVault).totalSupply()).div(IBeefyVault(beefyVault).balance());
+        return neededMoo;
     }
 
     function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) { 
+        uint256 availableAmount = _balanceOfAssets(_underlyingAsset);
+        
+        if (availableAmount < assetAmount) {
+            uint256 neededAmount = assetAmount - availableAmount; 
+            uint256 neededMoo = _calcUnderlyingToMoo(neededAmount); 
+            if(neededMoo > _balanceOfAssets(beefyVault)) {
+                neededMoo = _balanceOfAssets(beefyVault);
+            }
+
+            // beefy withdraw
+            IBeefyVault(beefyVault).withdraw(neededMoo);
+
+            // stargate withdraw
+            IStargateRouter(stargateRouter).instantRedeemLocal(stargatePoolId, _balanceOfAssets(stargatePool), address(this));
+
+            uint256 diffAmount = _balanceOfAssets(_underlyingAsset) - availableAmount;
+            if(diffAmount < neededAmount) { 
+                assetAmount = diffAmount + availableAmount;
+            }
+        }
+        
+        // usdc transfer
+        if(assetAmount > 0) SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount);
+
         return true;
     }
 
