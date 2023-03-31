@@ -85,12 +85,11 @@ contract UsdcStrategy is IStrategy {
     }
 
     function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) { 
-        uint256 availableAmount = _availableUnderlyings();
+        uint256 availableAmount = _availableUnderlyings(); 
         
-        if (availableAmount < assetAmount) {
-            uint256 neededAmount = assetAmount - availableAmount; 
-            uint256 neededMoo = _calcUnderlyingToMoo(neededAmount); 
-
+        if (availableAmount < assetAmount) { // b < r
+            uint256 neededAmount = assetAmount - availableAmount;
+            uint256 neededMoo = _calcUnderlyingToMoo(neededAmount);
             if(neededMoo > beefyVault.balanceOf(address(this))) {
                 neededMoo = beefyVault.balanceOf(address(this));
             }
@@ -101,8 +100,9 @@ contract UsdcStrategy is IStrategy {
             // stargate withdraw
             stargateRouter.instantRedeemLocal(stargatePoolId, stargatePool.balanceOf(address(this)), address(this));
 
+            // Todo: return loss, usdc balance ... for reporting withdraw result
             uint256 diffAmount = _availableUnderlyings() - availableAmount;
-            if(diffAmount < neededAmount) {
+            if(diffAmount < neededAmount) { 
                 assetAmount = diffAmount + availableAmount;
             }
         }
