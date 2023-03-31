@@ -4,7 +4,6 @@ import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-contract-sizer";
 import "@nomiclabs/hardhat-etherscan";
 
-
 dotenv.config();
 
 const DEFAULT_OPTIMIZER = {
@@ -44,11 +43,11 @@ const config: HardhatUserConfig = {
     hardhat: {
       accounts: [
         {
-          privateKey: process.env.TEST_ACC1, 
+          privateKey: process.env.TEST_ACC1 || "", 
           balance: "10000000"
         },
         {
-          privateKey: process.env.TEST_ACC2, 
+          privateKey: process.env.TEST_ACC2 || "", 
           balance: "10000000"
         }
       ],
@@ -62,7 +61,7 @@ const config: HardhatUserConfig = {
     },
     matic: {
       url: process.env.MATIC_URL || "https://polygon-rpc.com/",
-      accounts: [process.env.PRIVATE_KEY || "", process.env.TEST_ACC2 || ""]
+      accounts: [process.env.TEST_ACC1 || "", process.env.TEST_ACC2 || ""]
     },
     mumbai : {
       url: "https://rpc-mumbai.maticvigil.com/",
