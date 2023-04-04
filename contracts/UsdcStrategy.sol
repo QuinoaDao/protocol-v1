@@ -39,9 +39,9 @@ contract UsdcStrategy is IStrategy {
         _productAddress = productAddress_;
 
         // stargate & beefy setting
-        beefyVault = IBeefyVault(0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95);
+        beefyVault = IBeefyVault(0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95); // USDC LP vault (its platform is stargate)
+        stargatePool = IStargatePool(0x1205f31718499dBf1fCa446663B532Ef87481fe1); // USDC pool
         stargateRouter = IStargateRouter(0x45A01E4e04F14f7A4a6702c74187c5F6222033cd);
-        stargatePool = IStargatePool(0x1205f31718499dBf1fCa446663B532Ef87481fe1);
         stargatePoolId = 1;
     }
 
