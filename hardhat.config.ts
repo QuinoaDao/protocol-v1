@@ -41,16 +41,10 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      accounts: [
-        {
-          privateKey: process.env.TEST_ACC1 || "", 
-          balance: "10000000"
-        },
-        {
-          privateKey: process.env.TEST_ACC2 || "", 
-          balance: "10000000"
-        }
-      ],
+      accounts: {
+        count: 20,
+        mnemonic: "test test test test test test test test test test test junk",
+      },
       // chainId: 1337,
       chainId: 137, // MATIC FORK
       forking: {

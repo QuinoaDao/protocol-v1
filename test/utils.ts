@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Contract } from "ethers";
-import { Product, Strategy, UsdPriceModule, ERC20, contracts, WhitelistRegistry } from "../typechain-types";
+import { Product, Strategy, UsdPriceModule, WhitelistRegistry, UsdcStrategy, ERC20, contracts } from "../typechain-types";
 
 import wMaticAbi from "../abis/wMaticABI.json";
 import usdcAbi from "../abis/usdcABI.json";
@@ -39,6 +39,7 @@ export async function deployContracts(dac: SignerWithAddress) {
     // Deploy the contract to the test network
     const Product = await ethers.getContractFactory("Product");
     const Strategy = await ethers.getContractFactory("Strategy");
+    const UsdcStrategy = await ethers.getContractFactory("UsdcStrategy");
     const UsdPriceModule = await ethers.getContractFactory("UsdPriceModule");
     const WhitelistRegistry = await ethers.getContractFactory("WhitelistRegistry");
 
@@ -65,7 +66,7 @@ export async function deployContracts(dac: SignerWithAddress) {
     await wmaticStrategy.deployed();
     const wethStrategy = await Strategy.deploy(dac.address, wethAddress, product.address);
     await wethStrategy.deployed();
-    const usdcStrategy = await Strategy.deploy(dac.address, usdcAddress, product.address);
+    const usdcStrategy = await UsdcStrategy.deploy(dac.address, product.address);
     await usdcStrategy.deployed();
     const ghstStrategy = await Strategy.deploy(dac.address, ghstAddress, product.address);
     await ghstStrategy.deployed();
@@ -84,7 +85,7 @@ export async function deployContracts(dac: SignerWithAddress) {
     };
 }
 
-export async function depolyBadStrategy(dac: SignerWithAddress, nonDac: SignerWithAddress, product: Product) {
+export async function depolyBadStrategies(dac: SignerWithAddress, nonDac: SignerWithAddress, product: Product) {
     const Strategy = await ethers.getContractFactory("Strategy");
 
     // non dac member depoly bad strategy 1
@@ -115,7 +116,7 @@ export async function setUsdPriceModule(dac: SignerWithAddress, usdPriceModule: 
     await usdPriceModule.connect(dac).addUsdPriceFeed(quickAddress, quickOracle);
 }
 
-export async function setProductWithAllStrategy(
+export async function setProductWithAllStrategies(
     dac: SignerWithAddress, 
     product: Product,
     wmaticStrategy: Strategy,
@@ -209,9 +210,7 @@ export async function getTokens(dac: SignerWithAddress, nonDac: SignerWithAddres
 export async function swapTokens(
     dac: SignerWithAddress, 
     nonDac: SignerWithAddress, 
-    wMaticContract: Contract, 
-    wEthContract: Contract, 
-    usdcContract: Contract
+    wMaticContract: Contract
 ) {
     const swapContract = new ethers.Contract(quickSwapRouter, quickSwapAbi, dac);
 
@@ -255,8 +254,6 @@ export async function distributionTokens(signers: SignerWithAddress[]) {
     const ghstContract = new ethers.Contract(ghstAddress, ghstAbi, signers[0]);
     const swapContract = new ethers.Contract(quickSwapRouter, quickSwapAbi, signers[0]);
 
-    let cnt = 0;
-
     for(const val of signers) {
         // wmatic
         await wMaticContract
@@ -271,20 +268,18 @@ export async function distributionTokens(signers: SignerWithAddress[]) {
         // weth
         let amountOut = parseUnits("3", 17);
         let path = [wmaticAddress, wethAddress];
-        let amountIn = parseEther("450");
-    
+        let amountIn = parseEther("800"); //The value may vary depending on the price of ETH and MATIC
+
         await wMaticContract.connect(val).approve(quickSwapRouter, amountIn);
         await swapContract.connect(val).swapTokensForExactTokens(amountOut, amountIn, path, val.address, Date.now() + 10000*60, {gasLimit: 251234});
 
         // usdc
         amountOut = parseUnits("300", 6);
         path = [wmaticAddress, usdcAddress];
-        amountIn = parseEther("350");
+        amountIn = parseEther("500"); // The value may vary depending on the price of MATIC
 
         await wMaticContract.connect(val).approve(quickSwapRouter, amountIn);
         await swapContract.connect(val).swapTokensForExactTokens(amountOut, amountIn, path, val.address, Date.now() + 10000*60, {gasLimit: 251234});
-
-        cnt+=1;
     }
 
     return {
