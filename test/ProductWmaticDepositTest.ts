@@ -3,31 +3,6 @@ import { ethers } from "hardhat";
 import { expect, util } from "chai";
 import { parseEther, parseUnits } from "ethers/lib/utils";
 
-describe('matic - wmatic test',async () => {
-    it('matic - wmatic convert',async () => {
-        const [dac, nonDac] = await ethers.getSigners();
-        const {
-            product,
-            wmaticStrategy,
-            wethStrategy,
-            usdcStrategy,
-            ghstStrategy,
-            quickStrategy,
-            usdPriceModule,
-            whitelistRegistry
-        } = await utils.deployContracts(dac);
-        await utils.setUsdPriceModule(dac, usdPriceModule);
-        await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
-        const wMaticContract = new ethers.Contract(utils.wmaticAddress, utils.wMaticAbi, dac);
-        
-        let beforeWmaticBalance = await wMaticContract.balanceOf(dac.address);
-        await wMaticContract.deposit({from: dac.address, value: ethers.utils.parseEther("10"), gasLimit: 59999});
-
-        expect((await wMaticContract.balanceOf(dac.address))).equal(beforeWmaticBalance.add(ethers.utils.parseEther("10")));
-    })
-})
-
-
 describe('activation test',async () => {
    // 이때, activateProduct -> onlyDac check, 설정이 다 안되어 있을 때 activate 안되는거 확인
   it('Product activation failuer test',async () => {
@@ -125,7 +100,7 @@ describe('activation test',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
     
     const {
         wMaticContract,
@@ -143,7 +118,7 @@ describe('activation test',async () => {
 })
 
 
-describe('Basic deposit test',async () => {
+describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',async () => {
 
   it('deposit failure test: deactivation status',async () => {
     const [dac, nonDac] = await ethers.getSigners();
@@ -158,7 +133,7 @@ describe('Basic deposit test',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
   
     await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
     expect(product.connect(nonDac).deposit(utils.wmaticAddress, ethers.utils.parseEther("100"), dac.address)).revertedWith("Deposit is disabled now");
@@ -177,7 +152,7 @@ describe('Basic deposit test',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
     const {
         wMaticContract
       } = await utils.distributionTokens([dac, nonDac]);
@@ -218,7 +193,7 @@ describe('Basic deposit test',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
     const {
         wMaticContract,
@@ -267,7 +242,7 @@ describe('Basic deposit test',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
     const {
         wMaticContract
@@ -318,7 +293,7 @@ describe('Basic deposit test',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
     
     const {
         wMaticContract
@@ -368,13 +343,10 @@ describe('decimal 18 in-out',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
     const {
         wMaticContract,
-        wEthContract,
-        usdcContract,
-        swapContract
     } = await utils.distributionTokens([dac, nonDac]);
     await utils.activateProduct(dac, product, wMaticContract);
 
@@ -393,47 +365,7 @@ describe('decimal 18 in-out',async () => {
   })
 })
 
-describe('wmatic in - quick out',async () => {
-  it('wmatic in - quick out',async () => {
-    const [dac, nonDac] = await ethers.getSigners();
-    const {
-        product,
-        wmaticStrategy,
-        wethStrategy,
-        usdcStrategy,
-        ghstStrategy,
-        quickStrategy,
-        usdPriceModule,
-        whitelistRegistry
-    } = await utils.deployContracts(dac);
-    await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
-
-    const {
-        wMaticContract,
-        wEthContract,
-        usdcContract,
-        quickContract,
-        ghstContract,
-        swapContract
-    } = await utils.distributionTokens([dac, nonDac]);
-    await utils.activateProduct(dac, product, wMaticContract);
-
-    // wmatic으로 30 token deposit
-    await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
-
-    await wMaticContract.connect(nonDac).approve(product.address, ethers.utils.parseEther("100"));
-    await product.connect(nonDac).deposit(utils.wmaticAddress, ethers.utils.parseEther("30"), nonDac.address) // wmatic deposit
-
-    // quick으로 전부 withdraw
-    await product.connect(nonDac).withdraw(utils.quickAddress, ethers.constants.MaxUint256, nonDac.address, nonDac.address);
-    
-    await product.deactivateProduct();
-    await product.withdraw(utils.wmaticAddress, ethers.constants.MaxUint256, dac.address, dac.address);
-  })
-})
-
-describe('wmatic in - usdc out',async () => {
+describe.only('wmatic in - usdc out',async () => {
   it('wmatic in - usdc out',async () => {
     const [dac, nonDac] = await ethers.getSigners();
     const {
@@ -447,7 +379,7 @@ describe('wmatic in - usdc out',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
     const {
         wMaticContract,

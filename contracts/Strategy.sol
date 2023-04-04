@@ -44,6 +44,11 @@ contract Strategy is IStrategy {
         return true;
     }
 
+    // Todo: this strategy have no real strategy logic
+    function depositToDelegate() external returns(bool) {
+        return true;
+    }
+
     function withdrawAllToProduct() external onlyProduct returns(bool) {
         // If product is in activation state, Dac cannot call this method
         require(!IProduct(_productAddress).checkActivation(), "Product is active now");

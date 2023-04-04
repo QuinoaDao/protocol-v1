@@ -3,8 +3,9 @@ import { ethers } from "hardhat";
 import { expect, util } from "chai";
 import { parseEther, parseUnits } from "ethers/lib/utils";
 
-describe('usdc in test',async () => {
-    it('usdc in - usdc out test',async () => {
+describe('Deposit usdc tokens into product contract',async () => {
+    // contract들 deploy 및 setting 진행
+    async function deployAndSetting() {
         const [dac, nonDac] = await ethers.getSigners();
         const {
             product,
@@ -17,19 +18,54 @@ describe('usdc in test',async () => {
             whitelistRegistry
         } = await utils.deployContracts(dac);
         await utils.setUsdPriceModule(dac, usdPriceModule);
-        await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
 
         const {
             wMaticContract,
+            wEthContract,
             usdcContract,
-          } = await utils.distributionTokens([dac, nonDac]);
+            quickContract,
+            ghstContract,
+            swapContract
+        }= await utils.distributionTokens([dac, nonDac]);
+
         await utils.activateProduct(dac, product, wMaticContract);
-      
+
+        await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
+
+        return { 
+            dac, 
+            nonDac,
+            product,
+            wmaticStrategy,
+            wethStrategy,
+            usdcStrategy,
+            ghstStrategy,
+            quickStrategy,
+            usdPriceModule,
+            whitelistRegistry, 
+            wMaticContract,
+            wEthContract,
+            usdcContract,
+            quickContract,
+            ghstContract,
+            swapContract 
+        }
+    }
+
+    // USDC token으로 deposit한 후, USDC token으로 withdraw 진행
+    it('usdc in - usdc out test',async () => {
+        const {
+            dac,
+            nonDac,
+            product,
+            usdPriceModule,
+            usdcContract
+        } = await deployAndSetting();
+
         // usdc로 100 deposit -> nonDac
         await usdcContract.connect(nonDac).approve(product.address, parseUnits("50", 6));
         expect(product.connect(nonDac).deposit(utils.usdcAddress, parseUnits("50", 6), nonDac.address)).revertedWith("You're not in whitelist");
-
-        await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
 
         await product.connect(nonDac).deposit(utils.usdcAddress, parseUnits("50", 6), nonDac.address);
         await usdcContract.connect(nonDac).approve(product.address, parseUnits("50", 6));
@@ -68,31 +104,16 @@ describe('usdc in test',async () => {
 
     })
 
+    // USDC token으로 deposit한 후, wEth token으로 withdraw 진행 
     it('usdc in - weth out test',async () => {
-        const [dac, nonDac] = await ethers.getSigners();
         const {
+            dac,
+            nonDac,
             product,
-            wmaticStrategy,
-            wethStrategy,
-            usdcStrategy,
-            ghstStrategy,
-            quickStrategy,
             usdPriceModule,
-            whitelistRegistry
-        } = await utils.deployContracts(dac);
-        await utils.setUsdPriceModule(dac, usdPriceModule);
-        await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
-
-        const {
-            wMaticContract,
             wEthContract,
-            usdcContract,
-            swapContract
-          } = await utils.distributionTokens([dac, nonDac]);
-        await utils.activateProduct(dac, product, wMaticContract);
-      
-        // usdc로 100 deposit -> nonDac
-        await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
+            usdcContract
+        } = await deployAndSetting();
 
         await usdcContract.connect(nonDac).approve(product.address, parseUnits("50", 6));
         await product.connect(nonDac).deposit(utils.usdcAddress, parseUnits("50", 6), nonDac.address);
@@ -135,29 +156,17 @@ describe('usdc in test',async () => {
         console.log("user's total withdrawal value: ", await usdPriceModule.getAssetUsdValue(utils.wethAddress, "59924353490344731"));
     })
 
-    it('usdc in - wmatic out test',async () => {
-        const [dac, nonDac] = await ethers.getSigners();
+    // USDC token으로 deposit한 후, wMatic token으로 withdraw 진행
+    it.only('usdc in - wmatic out test',async () => {
         const {
+            dac,
+            nonDac,
             product,
-            wmaticStrategy,
-            wethStrategy,
-            usdcStrategy,
-            ghstStrategy,
-            quickStrategy,
             usdPriceModule,
-            whitelistRegistry
-        } = await utils.deployContracts(dac);
-        await utils.setUsdPriceModule(dac, usdPriceModule);
-        await utils.setProductWithAllStrategy(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
-
-        const {
             wMaticContract,
-            usdcContract,
-          } = await utils.distributionTokens([dac, nonDac]);
-        await utils.activateProduct(dac, product, wMaticContract);
-      
-        // usdc로 100 deposit -> nonDac
-        await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
+            usdcContract
+        } = await deployAndSetting();
+
         await usdcContract.connect(nonDac).approve(product.address, parseUnits("50", 6));
         await product.connect(nonDac).deposit(utils.usdcAddress, parseUnits("50", 6), nonDac.address);
         await usdcContract.connect(nonDac).approve(product.address, parseUnits("50", 6));
