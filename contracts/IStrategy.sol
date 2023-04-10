@@ -15,5 +15,5 @@ interface IStrategy {
 
     // for interacting with product
     function withdraw(uint256 assetAmount) external returns(bool);
-    function deposit() external returns(bool);
+    function deposit() external;
 }
