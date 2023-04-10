@@ -4,11 +4,14 @@ pragma solidity ^0.8.10;
 import "./IStrategy.sol";
 import "./IProduct.sol";
 import "./interfaces/IBalancerVault.sol";
+import "./interfaces/IBalancerPool.sol";
 import "./interfaces/IBeefyVault.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract WethStrategy is IStrategy {
+    using SafeERC20 for IERC20;
+
     // strategy state variables
     address public dac;
     address public product;
@@ -44,19 +47,116 @@ contract WethStrategy is IStrategy {
     }
 
     function totalAssets() external view override returns(uint256) {
-        return 0;
+        // return totalAmount;
+        uint256 totalAmount = _availableUnderlyings();
+        uint256 mooAmount = IBeefyVault(delegate).balanceOf(address(this));
+        uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
+
+        // 1. mooToken => balancer bpt token
+        bptAmount += mooAmount * IBeefyVault(delegate).balance() / IBeefyVault(delegate).totalSupply();
+
+        // 2. bpt token => weth token
+        totalAmount += bptAmount * IBalancerPool(yieldPool).getRate() / 1e18;
+
+        return totalAmount;
     }
 
-    function deposit() external override onlyDac returns(bool) {
-        return true;
+    function deposit() external override onlyDac {
+        uint256 underlyingAmount = _availableUnderlyings();
+        if(underlyingAmount > 0) { 
+            _joinPool(underlyingAmount);
+        }
+
+        uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
+        if(bptAmount > 0){
+            IBeefyVault(delegate).depositAll();
+        }
+        else {
+            revert("thers no available token balances");
+        }
     }
 
     function withdraw(uint256 assetAmount) external override returns(bool) {
+        uint256 availableAmount = _availableUnderlyings(); 
+        
+        if (availableAmount < assetAmount) { // 내가 빼야 하는 금액보다 뺄 수 있는 금액이 더 적은 경우
+            uint256 neededAmount = assetAmount - availableAmount;
+            uint256 neededMoo = _calcUnderlyingToMoo(neededAmount);
+            if(neededMoo > IBeefyVault(delegate).balanceOf(address(this))) {
+                neededMoo = IBeefyVault(delegate).balanceOf(address(this));
+            }
+
+            // beefy withdraw
+            IBeefyVault(delegate).withdraw(neededMoo);
+
+            // balancer withdraw
+            uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
+            _exitPool(bptAmount);
+
+            // Todo: return loss, usdc balance ... for reporting withdraw result
+            uint256 diffAmount = _availableUnderlyings() - availableAmount;
+            if(diffAmount < neededAmount) { 
+                assetAmount = diffAmount + availableAmount;
+            }
+        }
+        
+        // usdc transfer
+        if(assetAmount > 0) SafeERC20.safeTransfer(IERC20(underlyingAsset), product, assetAmount);
+
         return true;
     }
 
     function withdrawAll() external onlyProduct returns(bool) {
+        require(!IProduct(product).checkActivation(), "Product is active now");
+        // withdraw in beefy
+        IBeefyVault(delegate).withdrawAll();
+
+        // exit pool in balancer
+        uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
+        _exitPool(bptAmount);
+
+        // transfer all weth to product
+        IERC20(underlyingAsset).safeTransfer(product, _availableUnderlyings()); 
         return true;
     }
 
+    function _availableUnderlyings() internal view returns(uint256) {
+        return IERC20(underlyingAsset).balanceOf(address(this));
+    }
+
+    function _calcUnderlyingToMoo(uint256 _underlying) internal view returns(uint256) {
+        // usdc -> bpt -> moo
+        uint256 neededBpt = _underlying * 1e18 / IBalancerPool(yieldPool).getRate();
+        uint256 neededMoo = neededBpt * IBeefyVault(delegate).totalSupply() / IBeefyVault(delegate).balance();
+        return neededMoo;
+    }
+
+    function _joinPool(uint256 amount) internal {
+        bytes32 poolId = IBalancerPool(yieldPool).getPoolId();
+
+        (address[] memory assets,,) = IBalancerVault(yield).getPoolTokens(poolId);
+        uint256[] memory amountsIn = new uint256[](assets.length);
+        for (uint256 i=0; i < amountsIn.length; i++) {
+            amountsIn[i] = assets[i] == underlyingAsset ? amount : 0;
+        }
+        bytes memory userData = abi.encode(1, amountsIn, 1);
+        
+        IBalancerVault.JoinPoolRequest memory request = IBalancerVault.JoinPoolRequest(assets, amountsIn, userData, false);
+
+        IBalancerVault(yield).joinPool(poolId, address(this), address(this), request);
+    }
+
+    function _exitPool(uint256 amount) internal {
+        bytes32 poolId = IBalancerPool(yieldPool).getPoolId();
+        
+        (address[] memory assets,,) = IBalancerVault(yield).getPoolTokens(poolId);
+        // Withdraw all available funds regardless of slippage
+        uint256[] memory amountsOut = new uint256[](assets.length); 
+
+        bytes memory userData = abi.encode(0, amount, 1); // kind, bptIn, exitTokenIndex
+
+        IBalancerVault.ExitPoolRequest memory request = IBalancerVault.ExitPoolRequest(assets, amountsOut, userData, false);
+
+        IBalancerVault(yield).exitPool(poolId, address(this), address(this), request);
+    }
 }
