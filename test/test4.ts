@@ -16,7 +16,7 @@ describe("scenario 4",async () => {
             whitelistRegistry
         } = await utils.deployContracts(signers[0]);
         await utils.setUsdPriceModule(signers[0], usdPriceModule);
-        await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
     
         const {
             wMaticContract,
