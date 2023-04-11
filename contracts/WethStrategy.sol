@@ -76,20 +76,22 @@ contract WethStrategy is IStrategy {
         }
     }
 
-    function withdraw(uint256 assetAmount) external override returns(bool) {
+    function withdraw(uint256 assetAmount) external override onlyProduct returns(bool) {
         uint256 availableAmount = _availableUnderlyings(); 
         
-        if (availableAmount < assetAmount) { // 내가 빼야 하는 금액보다 뺄 수 있는 금액이 더 적은 경우
+        if (availableAmount < assetAmount) {
             uint256 neededAmount = assetAmount - availableAmount;
             uint256 neededMoo = _calcUnderlyingToMoo(neededAmount);
-            if(neededMoo > IBeefyVault(delegate).balanceOf(address(this))) {
-                neededMoo = IBeefyVault(delegate).balanceOf(address(this));
+            uint256 availableMoo = IBeefyVault(delegate).balanceOf(address(this));
+
+            if(neededMoo > availableMoo) {
+                neededMoo = availableMoo;
             }
 
-            // beefy withdraw
+            // withdraw in beefy
             IBeefyVault(delegate).withdraw(neededMoo);
 
-            // balancer withdraw
+            // exit pool in balancer
             uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
             _exitPool(bptAmount);
 
@@ -131,13 +133,13 @@ contract WethStrategy is IStrategy {
         return neededMoo;
     }
 
-    function _joinPool(uint256 amount) internal {
+    function _joinPool(uint256 underlyingAmount) internal {
         bytes32 poolId = IBalancerPool(yieldPool).getPoolId();
 
         (address[] memory assets,,) = IBalancerVault(yield).getPoolTokens(poolId);
         uint256[] memory amountsIn = new uint256[](assets.length);
         for (uint256 i=0; i < amountsIn.length; i++) {
-            amountsIn[i] = assets[i] == underlyingAsset ? amount : 0;
+            amountsIn[i] = assets[i] == underlyingAsset ? underlyingAmount : 0;
         }
         bytes memory userData = abi.encode(1, amountsIn, 1);
         
@@ -146,14 +148,14 @@ contract WethStrategy is IStrategy {
         IBalancerVault(yield).joinPool(poolId, address(this), address(this), request);
     }
 
-    function _exitPool(uint256 amount) internal {
+    function _exitPool(uint256 bptAmount) internal {
         bytes32 poolId = IBalancerPool(yieldPool).getPoolId();
         
         (address[] memory assets,,) = IBalancerVault(yield).getPoolTokens(poolId);
         // Withdraw all available funds regardless of slippage
         uint256[] memory amountsOut = new uint256[](assets.length); 
 
-        bytes memory userData = abi.encode(0, amount, 1); // kind, bptIn, exitTokenIndex
+        bytes memory userData = abi.encode(0, bptAmount, 1); // kind, bptIn, exitTokenIndex
 
         IBalancerVault.ExitPoolRequest memory request = IBalancerVault.ExitPoolRequest(assets, amountsOut, userData, false);
 
