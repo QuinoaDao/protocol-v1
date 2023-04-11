@@ -84,14 +84,14 @@ describe('Check initialization values when contacts deploy', () => {
 
     // Strategy test
     // dac nondac 잘 세팅되었는지 확인
-    expect(await wmaticStrategy.dacAddress()).equal(signers[0].address);
-    expect(await wethStrategy.dacAddress()).equal(signers[0].address);
-    expect(await ghstStrategy.dacAddress()).equal(signers[0].address);
-    expect(await quickStrategy.dacAddress()).equal(signers[0].address);
-    expect(await usdcStrategy.dacAddress()).equal(signers[0].address);
-    expect(await diffAssetStrategy.dacAddress()).equal(signers[0].address);
-    expect(await nonDacStrategy.dacAddress()).equal(signers[1].address);
-    expect(await dupStrategy.dacAddress()).equal(signers[0].address);
+    expect(await wmaticStrategy.dac()).equal(signers[0].address);
+    expect(await wethStrategy.dac()).equal(signers[0].address);
+    expect(await ghstStrategy.dac()).equal(signers[0].address);
+    expect(await quickStrategy.dac()).equal(signers[0].address);
+    expect(await usdcStrategy.dac()).equal(signers[0].address);
+    expect(await diffAssetStrategy.dac()).equal(signers[0].address);
+    expect(await nonDacStrategy.dac()).equal(signers[1].address);
+    expect(await dupStrategy.dac()).equal(signers[0].address);
   })
 
 });
@@ -198,7 +198,7 @@ describe('Product update functions test', () => {
     } = await utils.deployContracts(signers[0]);
 
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     expect(product.updateUsdPriceModule(ethers.constants.AddressZero)).to.be.revertedWithCustomError(product, "ZeroAddress");
     expect(product.updateUsdPriceModule(usdPriceModule.address)).to.be.revertedWithCustomError(product, "DuplicatedValue");
@@ -220,7 +220,7 @@ describe('Product update functions test', () => {
     } = await utils.deployContracts(signers[0]);
 
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     expect(product.updateFloatRatio(100000000000)).to.be.revertedWithCustomError(product, "OutOfRange");
     expect(product.updateFloatRatio(-3)).to.be.revertedWithCustomError(product, "OutOfRange");
@@ -240,7 +240,7 @@ describe('Product update functions test', () => {
         ghstStrategy,
         quickStrategy,
     } = await utils.deployContracts(signers[0]);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     expect(product.updateDeviationThreshold(100000000000)).to.be.revertedWithCustomError(product, "OutOfRange");
     expect(product.updateDeviationThreshold(-3)).to.be.revertedWithCustomError(product, "OutOfRange");
@@ -369,7 +369,7 @@ describe('Product balance/price functions test', () => {
         usdPriceModule
     } = await utils.deployContracts(signers[0]);
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     let wmaticPrice = (await usdPriceModule.getAssetUsdPrice(utils.wmaticAddress)).toString();
     let usdcPrice = (await usdPriceModule.getAssetUsdPrice(utils.usdcAddress)).toString();
@@ -391,7 +391,7 @@ describe('Product balance/price functions test', () => {
         usdPriceModule
     } = await utils.deployContracts(signers[0]);
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     let wmaticPrice = (await usdPriceModule.getAssetUsdPrice(utils.wmaticAddress));
     let usdcPrice = (await usdPriceModule.getAssetUsdPrice(utils.usdcAddress));
@@ -413,7 +413,7 @@ describe('Product balance/price functions test', () => {
         usdPriceModule
     } = await utils.deployContracts(signers[0]);
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     // product에 0원 있을 때
     expect(await product.sharePrice()).equal(ethers.utils.parseUnits("1.0", 18));
@@ -437,7 +437,7 @@ describe('Product balance/price functions test', () => {
         usdPriceModule
     } = await utils.deployContracts(signers[0]);
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     // product에 돈 0원 있을 때
     expect(product.assetFloatBalance(utils.uniAddress)).to.be.revertedWithCustomError(product, "NotFound");
@@ -467,7 +467,7 @@ describe('Product balance/price functions test', () => {
         usdPriceModule
     } = await utils.deployContracts(signers[0]);
     await utils.setUsdPriceModule(signers[0], usdPriceModule);
-    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     expect(await product.portfolioValue()).equal(0);
     expect(await product.totalFloatValue()).equal(0);

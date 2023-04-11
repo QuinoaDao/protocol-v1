@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Contract } from "ethers";
-import { Product, Strategy, UsdPriceModule, WhitelistRegistry, UsdcStrategy, ERC20, contracts } from "../typechain-types";
+import { Product, Strategy, UsdPriceModule, WhitelistRegistry, UsdcStrategy, WethStrategy, ERC20, contracts } from "../typechain-types";
 
 import wMaticAbi from "../abis/wMaticABI.json";
 import usdcAbi from "../abis/usdcABI.json";
@@ -39,6 +39,7 @@ export async function deployContracts(dac: SignerWithAddress) {
     // Deploy the contract to the test network
     const Product = await ethers.getContractFactory("Product");
     const Strategy = await ethers.getContractFactory("Strategy");
+    const WethStrategy = await ethers.getContractFactory("WethStrategy");
     const UsdcStrategy = await ethers.getContractFactory("UsdcStrategy");
     const UsdPriceModule = await ethers.getContractFactory("UsdPriceModule");
     const WhitelistRegistry = await ethers.getContractFactory("WhitelistRegistry");
@@ -64,7 +65,7 @@ export async function deployContracts(dac: SignerWithAddress) {
   
     const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
     await wmaticStrategy.deployed();
-    const wethStrategy = await Strategy.deploy(dac.address, wethAddress, product.address);
+    const wethStrategy = await WethStrategy.deploy(dac.address, product.address);
     await wethStrategy.deployed();
     const usdcStrategy = await UsdcStrategy.deploy(dac.address, product.address);
     await usdcStrategy.deployed();
@@ -120,8 +121,8 @@ export async function setProductWithAllStrategies(
     dac: SignerWithAddress, 
     product: Product,
     wmaticStrategy: Strategy,
-    wethStrategy: Strategy,
-    usdcStrategy: Strategy,
+    wethStrategy: WethStrategy,
+    usdcStrategy: UsdcStrategy,
     ghstStrategy: Strategy,
     quickStrategy: Strategy
 ) {
@@ -154,8 +155,8 @@ export async function setProductWithoutQuickAndGhst(
     dac: SignerWithAddress, 
     product: Product,
     wmaticStrategy: Strategy,
-    wethStrategy: Strategy,
-    usdcStrategy: Strategy,
+    wethStrategy: WethStrategy,
+    usdcStrategy: UsdcStrategy,
 ) {
     // strategy add
     await product.connect(dac).addStrategy(wmaticStrategy.address);

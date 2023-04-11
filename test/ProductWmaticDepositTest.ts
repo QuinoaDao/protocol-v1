@@ -100,7 +100,7 @@ describe('activation test',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     
     const {
         wMaticContract,
@@ -133,7 +133,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
   
     await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
     expect(product.connect(nonDac).deposit(utils.wmaticAddress, ethers.utils.parseEther("100"), dac.address)).revertedWith("Deposit is disabled now");
@@ -152,7 +152,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     const {
         wMaticContract
       } = await utils.distributionTokens([dac, nonDac]);
@@ -193,7 +193,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     const {
         wMaticContract,
@@ -242,7 +242,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     const {
         wMaticContract
@@ -293,7 +293,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     
     const {
         wMaticContract
@@ -343,7 +343,7 @@ describe('decimal 18 in-out',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     const {
         wMaticContract,
@@ -379,7 +379,7 @@ describe.only('wmatic in - usdc out',async () => {
         whitelistRegistry
     } = await utils.deployContracts(dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
-    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
     const {
         wMaticContract,
