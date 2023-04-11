@@ -89,6 +89,7 @@ contract SwapModuleV2 {
     token1PriceInValueOfToken0 = sqrtPriceX96ToUint(1/sqrtPriceX96, IERC20(decimalsToken1).decimals());
   }
 
+ 
   function getTwapQuote(
     address baseToken,
     address quoteToken,
@@ -101,27 +102,27 @@ contract SwapModuleV2 {
     quoteAmount = OracleLibrary.getQuoteAtTick(tick, baseAmount, baseToken, quoteToken);
   }
 
-//   function estimateAmountOut(
-//     address tokenIn,
-//     address tokenOut,
-//     uint256 amountIn,
-//     uint24 feeTier,
-//     uint32 secondsAgo
-//   ) public view returns (uint amountOut){
-//     uint128 feeSubtractedAmoutnIn = uint128(amountIn.Mul(uint256(10000) - uint256(feeTier)).Div(uint256(10000))); 
-//     uint256 amountOut = getTwapQuote(tokenIn, tokenOut, feeSubtractedAmoutnIn, feeTier, secondsAgo);
-//   }
+  function estimateAmountOut(
+    address tokenIn,
+    address tokenOut,
+    uint256 amountIn,
+    uint24 feeTier,
+    uint32 secondsAgo
+  ) public view returns (uint amountOut){
+    uint128 feeSubtractedAmoutnIn = uint128(amountIn.Mul(uint256(10000) - uint256(feeTier)).Div(uint256(10000))); 
+    uint256 amountOut = getTwapQuote(tokenIn, tokenOut, feeSubtractedAmoutnIn, feeTier, secondsAgo);
+  }
 
-//   function estimateAmountIn(
-//     address tokenOut,
-//     address tokenIn,
-//     uint256 amountOut,
-//     uint24 feeTier,
-//     uint32 secondsAgo
-//   ) public view returns (uint amountOut){
-//     uint128 feeSubtractedAmoutnIn = uint128(amountIn.Mul(uint256(10000) - uint256(feeTier)).Div(uint256(10000))); 
-//     uint256 amountOut = getTwapQuote(tokenIn, tokenOut, feeSubtractedAmoutnIn, feeTier, secondsAgo);
-//   }
+  function estimateAmountIn(
+    address tokenOut,
+    address tokenIn,
+    uint256 amountOut,
+    uint24 feeTier,
+    uint32 secondsAgo
+  ) public view returns (uint amountIn){
+    uint256 amountInBefore = getTwapQuote(tokenIn, tokenOut, feeSubtractedAmoutnIn, feeTier, secondsAgo);
+    amountIn = uint128(amountInBefore.Mul(uint256(10000) +uint256(feeTier)).Div(uint256(10000))); 
+  }
 
 
   function swapExactInputSingle(
