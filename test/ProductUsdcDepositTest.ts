@@ -18,7 +18,7 @@ describe('Deposit usdc tokens into product contract',async () => {
             whitelistRegistry
         } = await utils.deployContracts(dac);
         await utils.setUsdPriceModule(dac, usdPriceModule);
-        await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
         const {
             wMaticContract,
