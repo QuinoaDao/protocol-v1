@@ -15,8 +15,8 @@ import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 
 contract SwapModuleV2 {
 
-  IUniswapV3Factory public immutable override UNISWAP_V3_FACTORY;
-  ISwapRouter public immutable override UNISWAP_V3_ROUTER;
+  IUniswapV3Factory public immutable UNISWAP_V3_FACTORY;
+  ISwapRouter public immutable UNISWAP_V3_ROUTER;
 
   uint24[] internal _knownFeeTiers;
 
@@ -30,11 +30,11 @@ contract SwapModuleV2 {
     _knownFeeTiers.push(10000); //1.00% (exotic) ex)nonstable-nonstable
   }
 
-  function supportedFeeTiers() external view override returns (uint24[] memory) {
+  function supportedFeeTiers() external view returns (uint24[] memory) {
     return _knownFeeTiers;
   }
 
-  function isPairSupported(address _tokenA, address _tokenB) external view override returns (bool) {
+  function isPairSupported(address _tokenA, address _tokenB) external view returns (bool) {
     uint256 _length = _knownFeeTiers.length;
     for (uint256 i; i < _length; ++i) {
       address _pool = PoolAddress.computeAddress(address(UNISWAP_V3_FACTORY), PoolAddress.getPoolKey(_tokenA, _tokenB, _knownFeeTiers[i]));
@@ -43,10 +43,6 @@ contract SwapModuleV2 {
       }
     }
     return false;
-  }
- 
-  function getAllPoolsForPair(address _tokenA, address _tokenB) public view override returns (address[] memory) {
-    return _getPoolsForTiers(_tokenA, _tokenB, _knownFeeTiers);
   }
 
   function sqrtPriceX96ToUint(uint160 sqrtPriceX96, uint8 decimalsToken0)
@@ -85,8 +81,8 @@ contract SwapModuleV2 {
     (token0, token1) = _tokenA < _tokenB ? (_tokenA, _tokenB) : (_tokenB, _tokenA);
 
     (uint160 sqrtPriceX96,,,,,,) =  IUniswapV3Pool(pool).slot0();
-    token0PriceInValueOfToken1 = sqrtPriceX96ToUint(sqrtPriceX96, IERC20(decimalsToken0).decimals());
-    token1PriceInValueOfToken0 = sqrtPriceX96ToUint(1/sqrtPriceX96, IERC20(decimalsToken1).decimals());
+    token0PriceInValueOfToken1 = sqrtPriceX96ToUint(sqrtPriceX96, IERC20(token0).decimals());
+    token1PriceInValueOfToken0 = sqrtPriceX96ToUint(1/sqrtPriceX96, IERC20(token1).decimals());
   }
 
  
@@ -120,7 +116,7 @@ contract SwapModuleV2 {
     uint24 feeTier,
     uint32 secondsAgo
   ) public view returns (uint amountIn){
-    uint256 amountInBefore = getTwapQuote(tokenIn, tokenOut, feeSubtractedAmoutnIn, feeTier, secondsAgo);
+    uint256 amountInBefore = getTwapQuote(tokenIn, tokenOut, amountOut, feeTier, secondsAgo);
     amountIn = uint128(amountInBefore.Mul(uint256(10000) +uint256(feeTier)).Div(uint256(10000))); 
   }
 
@@ -131,10 +127,10 @@ contract SwapModuleV2 {
     uint24 feeTier,
     uint256 _amountIn
   ) external returns (uint256 amountOut){
-    TransferHelper.safeApprove(_tokenIn, address(UNISWAP_V3_ROUTER), _amoutnIn);
+    TransferHelper.safeApprove(_tokenIn, address(UNISWAP_V3_ROUTER), _amountIn);
 
     uint32 secondsAgo = 1800;
-    uint256 price = getTwapQuote(_tokenIn, _tokenOut, uint128(_amountIn), feeTier, secondsago);
+    uint256 price = getTwapQuote(_tokenIn, _tokenOut, uint128(_amountIn), feeTier, secondsAgo);
     // set slippate to 0.5%
     uint256 amountOutMin = price * (1000 - 5) / 1000;
     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
@@ -159,11 +155,11 @@ contract SwapModuleV2 {
     uint256 _amountOut
   ) external returns (uint256 amountIn){
     uint32 secondsAgo = 1800;
-    uint256 price = getTwapQuote(_tokenOut, _tokenIn, uint128(_amountOut), feeTier, secondsago);
+    uint256 price = getTwapQuote(_tokenOut, _tokenIn, uint128(_amountOut), feeTier, secondsAgo);
     // set slippate to 0.5%
     uint256 amountInMax = price * (1000 + 5) / 1000;
     
-    TransferHelper.safeApprove(_tokenIn, address(UNISWAP_V3_ROUTER), amoutnInMax);
+    TransferHelper.safeApprove(_tokenIn, address(UNISWAP_V3_ROUTER), amountInMax);
     ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
         .ExactOutputSingleParams({
             tokenIn: _tokenIn,
@@ -178,9 +174,9 @@ contract SwapModuleV2 {
 
     amountIn = UNISWAP_V3_ROUTER.exactOutputSingle(params);
 
-    if (amountIn < amountInMaximum) {
+    if (amountIn < amountInMax) {
         TransferHelper.safeApprove(_tokenIn, address(UNISWAP_V3_ROUTER), 0);
-        TransferHelper.safeTransfer(_tokenIn, msg.sender, amountInMaximum - amountIn);
+        TransferHelper.safeTransfer(_tokenIn, msg.sender, amountInMax - amountIn);
     }
   }
 }
