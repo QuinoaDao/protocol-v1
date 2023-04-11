@@ -7,8 +7,8 @@ interface IStrategy {
     function dac() external view returns(address);
     function product() external view returns(address);
 
-    function delegate() external returns(address); // interacting with delegate platform's deposit / withdraw 
-    function yield() external returns(address); // interfacting with yield platform's deposit / withdraw
+    function delegate() external view returns(address); // interacting with delegate platform's deposit / withdraw 
+    function yield() external view returns(address); // interfacting with yield platform's deposit / withdraw
 
     // view function
     function totalAssets() external view returns(uint256);
