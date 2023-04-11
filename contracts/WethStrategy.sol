@@ -56,6 +56,8 @@ contract WethStrategy is IStrategy {
         bptAmount += mooAmount * IBeefyVault(delegate).balance() / IBeefyVault(delegate).totalSupply();
 
         // 2. bpt token => weth token
+        // Note: The pool.getRate() function returns the exchange rate of 
+        // a BPT to the underlying base asset of the pool accounting for rate providers, if they exist. 
         totalAmount += bptAmount * IBalancerPool(yieldPool).getRate() / 1e18;
 
         return totalAmount;
