@@ -35,7 +35,7 @@ export function delay(ms: number) {
     return new Promise( resolve => setTimeout(resolve, ms) );
 }
 
-export async function deployContracts(dac: SignerWithAddress) {
+export async function deployContracts(dac: SignerWithAddress) { 
     // Deploy the contract to the test network
     const Product = await ethers.getContractFactory("Product");
     const Strategy = await ethers.getContractFactory("Strategy");
@@ -59,6 +59,47 @@ export async function deployContracts(dac: SignerWithAddress) {
         floatRatio: 20000,
         deviationThreshold: 5000
     }
+  
+    const product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    await product.deployed();
+  
+    const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
+    await wmaticStrategy.deployed();
+    const wethStrategy = await WethStrategy.deploy(dac.address, product.address);
+    await wethStrategy.deployed();
+    const usdcStrategy = await UsdcStrategy.deploy(dac.address, product.address);
+    await usdcStrategy.deployed();
+    const ghstStrategy = await Strategy.deploy(dac.address, ghstAddress, product.address);
+    await ghstStrategy.deployed();
+    const quickStrategy = await Strategy.deploy(dac.address, quickAddress, product.address);await usdPriceModule.deployed();
+    await quickStrategy.deployed();
+
+    return {
+      product,
+      wmaticStrategy,
+      wethStrategy,
+      usdcStrategy,
+      ghstStrategy,
+      quickStrategy,
+      usdPriceModule,
+      whitelistRegistry
+    };
+}
+
+export async function deployWithCustomInfo(dac: SignerWithAddress, productInfo: any) { 
+    // Deploy the contract to the test network
+    const Product = await ethers.getContractFactory("Product");
+    const Strategy = await ethers.getContractFactory("Strategy");
+    const WethStrategy = await ethers.getContractFactory("WethStrategy");
+    const UsdcStrategy = await ethers.getContractFactory("UsdcStrategy");
+    const UsdPriceModule = await ethers.getContractFactory("UsdPriceModule");
+    const WhitelistRegistry = await ethers.getContractFactory("WhitelistRegistry");
+
+    const whitelistRegistry = await WhitelistRegistry.deploy();
+    await whitelistRegistry.deployed();
+  
+    const usdPriceModule = await UsdPriceModule.deploy();
+    await usdPriceModule.deployed();
   
     const product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
     await product.deployed();
@@ -127,8 +168,14 @@ export async function setProductWithAllStrategies(
     quickStrategy: Strategy
 ) {
     // strategy add
-    await product.connect(dac).addAsset(ghstAddress);
-    await product.connect(dac).addAsset(quickAddress);
+    try{
+        await product.connect(dac).addAsset(usdcAddress);
+        await product.connect(dac).addAsset(ghstAddress);
+        await product.connect(dac).addAsset(quickAddress);
+    }
+    catch (error){
+        console.error(error);
+    }
     await product.connect(dac).addStrategy(wmaticStrategy.address);
     await product.connect(dac).addStrategy(wethStrategy.address);
     await product.connect(dac).addStrategy(usdcStrategy.address);

@@ -28,7 +28,6 @@ describe('Deposit weth tokens into product contract',async () => {
           } = await utils.distributionTokens([dac, nonDac]);
         await utils.activateProduct(dac, product, wMaticContract);
       
-        // weth로 0.1 weth deposit -> nonDac
         await utils.setWhitelists([nonDac], whitelistRegistry, product.address);
 
         return {
