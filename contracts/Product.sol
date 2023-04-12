@@ -182,7 +182,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         if(!checkAsset(IStrategy(strategyAddress).underlyingAsset())) revert NotFound();
         if(strategyAddress == address(0x0)) revert ZeroAddress();
         if(strategies[IStrategy(strategyAddress).underlyingAsset()] != address(0x0)) revert DuplicatedValue();
-        if(IStrategy(strategyAddress).dacAddress() != _dacAddress) revert ErrorWithMsg("strategyDacConflict");
+        if(IStrategy(strategyAddress).dac() != _dacAddress) revert ErrorWithMsg("strategyDacConflict");
         strategies[IStrategy(strategyAddress).underlyingAsset()] = strategyAddress;
     }
 
@@ -643,7 +643,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
     } 
 
     function _redeemFromStrategy(address strategyAddress, uint256 assetAmount) private returns(bool){
-        return IStrategy(strategyAddress).withdrawToProduct(assetAmount);
+        return IStrategy(strategyAddress).withdraw(assetAmount);
     }
 
     function convertToShares(address assetAddress, uint256 assetAmount) public view override returns(uint256 shareAmount) {

@@ -10,95 +10,84 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract UsdcStrategy is IStrategy {
-    // internal state variables
-    address _dacAddress;
-    address _productAddress;
-    address immutable _underlyingAsset;
+
+    // strategy state variables
+    address public dac;
+    address public product;
+    address immutable public underlyingAsset;
     
-    IBeefyVault beefyVault;
-    IStargateRouter stargateRouter;
-    IStargatePool stargatePool;
-    uint16 stargatePoolId;
+    // for yield 
+    address public delegate; // Beefy vault
+    address public yield; // stargate router
+    address public yieldPool; // stargate pool
 
     modifier onlyProduct {
-        require(msg.sender == _productAddress, "No permission: only product");
+        require(msg.sender == product, "No permission: only product");
         _;
     }
 
     modifier onlyDac {
-        require(msg.sender == _dacAddress, "No permission: only dac");
+        require(msg.sender == dac, "No permission: only dac");
         _;
     }
 
-    constructor (address dacAddress_, address productAddress_) {
-        _underlyingAsset = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174; // polygon usdc (immutable)
+    constructor (address dac_, address product_) {
+        underlyingAsset = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174; // polygon usdc (immutable)
         
-        require(dacAddress_ != address(0x0), "Invalid dac address");
-        _dacAddress = dacAddress_;
-        require(productAddress_ != address(0x0), "Invalid product address");
-        _productAddress = productAddress_;
+        require(dac_ != address(0x0), "Invalid dac address");
+        dac = dac_;
+        require(product_ != address(0x0), "Invalid product address");
+        product = product_;
 
         // stargate & beefy setting
-        beefyVault = IBeefyVault(0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95); // USDC LP vault (its platform is stargate)
-        stargatePool = IStargatePool(0x1205f31718499dBf1fCa446663B532Ef87481fe1); // USDC pool
-        stargateRouter = IStargateRouter(0x45A01E4e04F14f7A4a6702c74187c5F6222033cd);
-        stargatePoolId = 1;
+        delegate = 0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95; // USDC LP vault (its platform is stargate)
+        yieldPool = 0x1205f31718499dBf1fCa446663B532Ef87481fe1; // USDC pool
+        yield = 0x45A01E4e04F14f7A4a6702c74187c5F6222033cd; // stargate router for deposit/withdrawal logic
     }
 
-    function dacAddress() public view override returns(address) {
-        return _dacAddress;
-    }
-
-    function underlyingAsset() external view override returns(address) {
-        return _underlyingAsset;
-    }
-
-    function depositToDelegate() external override onlyDac returns(bool) { 
+    function deposit() external override onlyDac { 
         uint256 underlyingAmount = _availableUnderlyings();
         if(underlyingAmount > 0) {
-            stargateRouter.addLiquidity(stargatePoolId, underlyingAmount, address(this));
+            uint256 poolId = IStargatePool(yieldPool).poolId();
+            IStargateRouter(yield).addLiquidity(poolId, underlyingAmount, address(this));
         }
 
-        uint256 starAmount = stargatePool.balanceOf(address(this));
+        uint256 starAmount = IStargatePool(yieldPool).balanceOf(address(this));
         if(starAmount > 0) {
-            beefyVault.depositAll();
+            IBeefyVault(delegate).depositAll();
         } 
         else {
             revert("theres no available token balances");
         }
-
-        return true;
     }
 
     function totalAssets() public view override returns(uint256) {
         uint256 totalAmount = _availableUnderlyings();
-        uint256 mooAmount = beefyVault.balanceOf(address(this));
-        uint256 starAmount = stargatePool.balanceOf(address(this));
+        uint256 mooAmount = IBeefyVault(delegate).balanceOf(address(this));
+        uint256 starAmount = IStargatePool(yieldPool).balanceOf(address(this));
 
         // 1. moo token => star usdc token
-        starAmount += mooAmount * beefyVault.balance() / beefyVault.totalSupply();
+        starAmount += mooAmount * IBeefyVault(delegate).balance() / IBeefyVault(delegate).totalSupply();
 
         // 2. star usdc token => usdc token
-        totalAmount += stargatePool.amountLPtoLD(starAmount);
+        totalAmount += IStargatePool(yieldPool).amountLPtoLD(starAmount);
 
         return totalAmount;
     }
 
-    function withdrawToProduct(uint256 assetAmount) external override onlyProduct returns(bool) { 
+    function withdraw(uint256 assetAmount) external override onlyProduct returns(bool) { 
         uint256 availableAmount = _availableUnderlyings(); 
         
-        if (availableAmount < assetAmount) { // b < r
+        if (availableAmount < assetAmount) { 
             uint256 neededAmount = assetAmount - availableAmount;
             uint256 neededMoo = _calcUnderlyingToMoo(neededAmount);
-            if(neededMoo > beefyVault.balanceOf(address(this))) {
-                neededMoo = beefyVault.balanceOf(address(this));
+            uint256 availableMoo = IBeefyVault(delegate).balanceOf(address(this));
+
+            if(neededMoo > availableMoo) {
+                neededMoo = availableMoo;
             }
 
-            // beefy withdraw
-            beefyVault.withdraw(neededMoo);
-
-            // stargate withdraw
-            stargateRouter.instantRedeemLocal(stargatePoolId, stargatePool.balanceOf(address(this)), address(this));
+            _withdraw(neededMoo);
 
             // Todo: return loss, usdc balance ... for reporting withdraw result
             uint256 diffAmount = _availableUnderlyings() - availableAmount;
@@ -108,29 +97,42 @@ contract UsdcStrategy is IStrategy {
         }
         
         // usdc transfer
-        if(assetAmount > 0) SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, assetAmount);
+        if(assetAmount > 0) SafeERC20.safeTransfer(IERC20(underlyingAsset), product, assetAmount);
 
         return true;
     }
 
-    function withdrawAllToProduct() external onlyProduct returns(bool) {
+    function withdrawAll() external onlyProduct returns(bool) {
         // withdraw all moo & stargate tokens and transfer usdc tokens to product contracts
-        require(!IProduct(_productAddress).checkActivation(), "Product is active now");
-        beefyVault.withdrawAll(); // withdraw all moo star usdc tokens
-        stargateRouter.instantRedeemLocal(stargatePoolId, stargatePool.balanceOf(address(this)), address(this)); // withdraw all star usdc tokens
-        SafeERC20.safeTransfer(IERC20(_underlyingAsset), _productAddress, _availableUnderlyings()); // transfer all usdc tokens
+        require(!IProduct(product).checkActivation(), "Product is active now");
+        
+        _withdraw(type(uint256).max);
+        
+        SafeERC20.safeTransfer(IERC20(underlyingAsset), product, _availableUnderlyings()); // transfer all usdc tokens
         return true;
     }
 
     function _availableUnderlyings() internal view returns(uint256) {
-        return IERC20(_underlyingAsset).balanceOf(address(this));
+        return IERC20(underlyingAsset).balanceOf(address(this));
     }
     
-    function _calcUnderlyingToMoo(uint256 _underlying) internal view returns(uint256) {
+    function _calcUnderlyingToMoo(uint256 underlying) internal view returns(uint256) {
         // usdc -> star -> moo
-        uint256 neededStar = _underlying * stargatePool.totalSupply() / stargatePool.totalLiquidity();
-        uint256 neededMoo = neededStar * beefyVault.totalSupply() / beefyVault.balance();
+        uint256 neededStar = underlying * IStargatePool(yieldPool).totalSupply() / IStargatePool(yieldPool).totalLiquidity();
+        uint256 neededMoo = neededStar * IBeefyVault(delegate).totalSupply() / IBeefyVault(delegate).balance();
         return neededMoo;
     }
 
+    function _withdraw(uint256 mooAmount) internal {
+        // beefy withdraw
+        if(mooAmount == type(uint256).max) {
+            mooAmount = IBeefyVault(delegate).balanceOf(address(this));
+        }
+        IBeefyVault(delegate).withdraw(mooAmount);
+
+        // stargate withdraw
+        uint256 poolId = IStargatePool(yieldPool).poolId();
+        uint256 starAmount = IStargatePool(yieldPool).balanceOf(address(this));
+        IStargateRouter(yield).instantRedeemLocal(uint16(poolId), starAmount, address(this));
+    }
 }
