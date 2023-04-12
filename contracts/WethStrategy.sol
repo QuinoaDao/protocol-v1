@@ -46,7 +46,7 @@ contract WethStrategy is IStrategy {
 
     }
 
-    function totalAssets() external view override returns(uint256) {
+    function totalAssets() public view override returns(uint256) {
         // return totalAmount;
         uint256 totalAmount = _availableUnderlyings();
         uint256 mooAmount = IBeefyVault(delegate).balanceOf(address(this));
@@ -86,7 +86,7 @@ contract WethStrategy is IStrategy {
             uint256 neededMoo = _calcUnderlyingToMoo(neededAmount);
             uint256 availableMoo = IBeefyVault(delegate).balanceOf(address(this));
 
-            if(neededMoo > availableMoo) {
+            if(neededMoo > availableMoo || assetAmount >= totalAssets()) {
                 neededMoo = availableMoo;
             }
 
@@ -117,7 +117,7 @@ contract WethStrategy is IStrategy {
 
         // exit pool in balancer
         uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
-        _exitPool(bptAmount);
+        if(bptAmount > 0) _exitPool(bptAmount);
 
         // transfer all weth to product
         IERC20(underlyingAsset).safeTransfer(product, _availableUnderlyings()); 

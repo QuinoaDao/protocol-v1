@@ -22,7 +22,7 @@ interface IWhiteListRegistry {
 }
 
 interface IStrategyForEmergency {
-    function withdrawAllToProduct() external returns(bool);
+    function withdrawAll() external returns(bool);
 }
 
 contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
@@ -435,7 +435,7 @@ contract Product is ERC20, IProduct, SwapModule, AutomationCompatibleInterface {
         for(uint i=0; i<assets.length; i++){
             if(strategies[assets[i].assetAddress] != address(0x0)) { 
                 if(IStrategy(strategies[assets[i].assetAddress]).totalAssets() > 0) { 
-                   require(IStrategyForEmergency(strategies[assets[i].assetAddress]).withdrawAllToProduct());
+                   require(IStrategyForEmergency(strategies[assets[i].assetAddress]).withdrawAll());
                 }
             }
             SafeERC20.safeTransfer(IERC20(assets[i].assetAddress), _dacAddress, _assetBalanceOf(assets[i].assetAddress, address(this)));
