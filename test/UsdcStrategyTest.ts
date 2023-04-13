@@ -207,8 +207,9 @@ describe("Usdc strategy test", async () => {
     })
 
     it("Usdc strategy.deposit test",async () => {
-        // await reset(process.env.ALCHEMY_MATIC_URL, process.env.POLYGON_BLOCK_NUMBER);
-        reset(process.env.ALCHEMY_MATIC_URL ,process.env.POLYGON_BLOCK_NUMBER)
+        const hexBlockNum = '0x' + Number(process.env.POLYGON_BLOCK_NUMBER).toString(16);
+        await reset(process.env.ALCHEMY_MATIC_URL, hexBlockNum)
+
         const signers = await ethers.getSigners();
         const {
             product,
@@ -242,7 +243,8 @@ describe("Usdc strategy test", async () => {
     });
 
     it("Usdc strategy.withdrawAll test",async () => {
-        // await reset(process.env.ALCHEMY_MATIC_URL, process.env.POLYGON_BLOCK_NUMBER);
+        const hexBlockNum = '0x' + Number(process.env.POLYGON_BLOCK_NUMBER).toString(16);
+        await reset(process.env.ALCHEMY_MATIC_URL, hexBlockNum)
 
         const signers = await ethers.getSigners();
         const {
