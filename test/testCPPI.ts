@@ -1,0 +1,423 @@
+import * as utils from "./utils";
+import { ethers } from "hardhat";
+import { expect } from "chai";
+import { BigNumber } from "@ethersproject/bignumber";
+import { parseEther, parseUnits } from "ethers/lib/utils";
+import { Product, Strategy, UsdPriceModule, WhitelistRegistry } from "../typechain-types";
+import { Contract } from "ethers";
+
+
+describe("CPPI Product",async () => {
+    let signers: SignerWithAddress[];
+    let product: Product;
+    let wmaticStrategy: Strategy; // Empty
+    let wethStrategy: Strategy;
+    let usdcStrategy: Strategy;
+    let ghstStrategy: Strategy; // Empty
+    let quickStrategy: Strategy; // Empty
+    let usdPriceModule: UsdPriceModule;
+    let whitelistRegistry: WhitelistRegistry;
+    let wMaticContract: Contract, wEthContract: Contract, usdcContract:Contract, quickContract, ghstContract, swapContract
+
+    async function userDeposit(
+        signers: SignerWithAddress[], 
+        product: Product,
+        wMaticContract: Contract, 
+        wEthContract: Contract, 
+        usdcContract: Contract,
+        usdPriceModule: UsdPriceModule,
+        whitelistRegistry: WhitelistRegistry
+        ) {
+        const assetChoices = [utils.wmaticAddress, utils.wethAddress, utils.usdcAddress];
+        const assetContracts = [wMaticContract, wEthContract, usdcContract];
+
+        let cnt = [100, 100, 100]
+        let assetChoices_deposit = [utils.wmaticAddress];
+        let assetContracts_deposit = [wMaticContract];
+        let assetValue_deposit = ["0"];
+
+        for(let i=0; i<signers.length; i++) {
+            let rand = Math.floor(Math.random() * 3);
+            while(cnt[rand] == 0) {
+                rand = Math.floor(Math.random() * 3);
+            }
+            
+            assetChoices_deposit.push(assetChoices[rand]);
+            assetContracts_deposit.push(assetContracts[rand]);
+            cnt[rand] -= 1;
+
+            rand = Math.floor(Math.random() * (30*(10**18))) + 20*(10**18);
+            assetValue_deposit.push(rand.toString());
+        }
+
+        // deposit
+        for (let i=1; i<signers.length; i++){
+            let depositAddress = assetChoices_deposit[i];
+            let depositContract = assetContracts_deposit[i];
+            let depositBalance = await usdPriceModule.convertAssetBalance(depositAddress, assetValue_deposit[i]);
+
+            await utils.delay(50);
+            await utils.setWhitelists([signers[i]], whitelistRegistry, product.address);
+            await depositContract.connect(signers[i]).approve(product.address, depositBalance);
+            await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
+        }
+
+        return {assetChoices_deposit, assetContracts_deposit, assetValue_deposit};
+    }
+
+    async function userWithdraw(
+        signers: SignerWithAddress[], 
+        product: Product,
+        wMaticContract: Contract, 
+        wEthContract: Contract, 
+        usdcContract: Contract,
+        usdPriceModule: UsdPriceModule
+    ) {
+        const assetChoices = [utils.wmaticAddress, utils.wethAddress, utils.usdcAddress];
+        const assetContracts = [wMaticContract, wEthContract, usdcContract];
+
+        const assetChoices_withdraw = [utils.wmaticAddress];
+        const assetContracts_withdraw = [wMaticContract];
+        const cnt = [100, 100, 100];
+
+        for(let i=0; i<signers.length; i++) {
+            let rand = Math.floor(Math.random() * 3);
+            while(cnt[rand] == 0) {
+                rand = Math.floor(Math.random() * 3);
+            }
+            
+            assetChoices_withdraw.push(assetChoices[rand]);
+            assetContracts_withdraw.push(assetContracts[rand]);
+            cnt[rand] -= 1;
+        }
+
+        let assetValue_withdraw = ["0"];
+        let user_shareBalance = ["0"];
+        let user_estimatedWithdraw = ["0"];
+
+        for (let i=1; i<signers.length; i++) {
+            let withdrawAddress = assetChoices_withdraw[i];
+            let withdrawContract = assetContracts_withdraw[i];
+            let beforeUserBalance = await withdrawContract.balanceOf(signers[i].address);
+            let user_share = await product.balanceOf(signers[i].address);
+            user_shareBalance.push((user_share).toString());
+            user_estimatedWithdraw.push((await product.shareValue(user_share)).toString());
+
+            await utils.delay(50);
+            await product.connect(signers[i]).withdraw(withdrawAddress, ethers.constants.MaxUint256, signers[i].address, signers[i].address);
+            let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawAddress, (await withdrawContract.balanceOf(signers[i].address)).sub(beforeUserBalance));
+
+            assetValue_withdraw.push((userWithdrawValue).toString());
+        }
+    }
+    
+    
+    beforeEach("Contract Configuation", async() => {
+        signers = await ethers.getSigners();
+
+        ({
+            product,
+            wmaticStrategy,
+            wethStrategy,
+            usdcStrategy,
+            ghstStrategy,
+            quickStrategy,
+            usdPriceModule,
+            whitelistRegistry
+         } = await utils.deployContracts(signers[0]));
+        
+        await utils.setUsdPriceModule(signers[0], usdPriceModule);
+
+        await utils.setCPPIProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        ({
+            wMaticContract,
+            wEthContract,
+            usdcContract,
+            quickContract,
+            ghstContract,
+            swapContract
+        } = await utils.distributionTokens(signers));
+
+        await product.connect(signers[0]).updateRebalanceParam(60000, 2);
+        // await utils.activateProduct(signers[0], product, wMaticContract);
+    })
+
+    it("should have a floor ratio", async () => {
+        const floorRatio: BigNumber = await product.floorRatio();
+        expect(floorRatio.gt(BigNumber.from(0))).to.be.true;
+    })
+
+    it("should have a multiplier", async () => {
+        const multiplier: BigNumber = await product.multiplier();
+        expect(multiplier.gt(BigNumber.from(0))).to.be.true;    
+    })
+
+    // it("should revert with zero or less floor value when activating", async () => {
+        // const Product = await ethers.getContractFactory("Product");
+        // const dummyProduct = 
+        //     await Product.deploy(
+        //         {
+        //             productName: "Test CPPI Product",
+        //             productSymbol: "TP",
+        //             dacName: "Test DAC",
+        //             dacAddress: signers[0],
+        //             underlyingAssetAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+        //             floatRatio: 20000, // 20% as float ratio
+        //             deviationThreshold: 500, // 0.5% deviation threshold
+        //         },
+        //         whitelistRegistry.address,
+        //         "0x00",
+        //         usdPriceModule.address,
+        //         [ethers.constants.AddressZero],
+        //         ethers.constants.AddressZero,
+        //         ethers.constants.AddressZero
+        //         )
+        // await dummyProduct.deployed();
+        // await utils.setProductWithAllStrategies(signers[0], dummyProduct, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);    
+    // })
+    
+    // it("should revert with zero or less multiplier", async () => {
+        
+    // })
+
+    it("should update rebalance parameters correctly", async () => {
+        const newFloorRatio = 50000;
+        const newMultiplier = 2;
+        await product.updateRebalanceParam(newFloorRatio, newMultiplier);
+        expect(await product.floorRatio()).to.equal(newFloorRatio);
+        expect(await product.multiplier()).to.equal(newMultiplier);
+    });
+
+    it("should revert if newFloorRatio or newMultiplier is out of range", async function () {
+        expect(product.updateRebalanceParam(100001, 1)).to.be.revertedWith("OutOfRange");
+        expect(product.updateRebalanceParam(50000, -1)).to.be.revertedWith("OutOfRange");
+    });
+
+    it("should revert if caller is not the DAC", async function () {
+        expect(product.connect(signers[1]).updateRebalanceParam(50000, 1)).to.be.revertedWith("Only dac can access");
+    });
+
+    it("should be able to activate", async () => {
+        await utils.activateProduct(signers[0], product, wMaticContract);
+        expect(await product.checkActivation()).to.be.true;
+    })
+
+    it("should be equal between dac deposit value and portfolio initial value", async () => {
+        await utils.activateProduct(signers[0], product, wMaticContract);
+        let dacInitialDepositValue = await usdPriceModule.getAssetUsdValue(utils.wmaticAddress, parseEther("200"));
+        let productInitialShareBalance = await product.totalSupply();
+        let productInitialPortfolioValue = await product.portfolioValue();
+        let productInitialWmaticBalance = await product.assetBalance(utils.wmaticAddress);
+        expect(dacInitialDepositValue).equal(productInitialPortfolioValue);
+    })
+
+    // it('should revert if called by an unauthorized account', async function () {
+        // expect(await product.connect(signers[1]).rebalance()).to.be.reverted;
+    // });
+
+    // it('should update the current portfolio value', async function () {
+    //     // Call the function from an authorized account
+    //     await utils.activateProduct(signers[0], product, wMaticContract);
+
+    //     let currentPortfolioValue = await product.portfolioValue();
+    //     await product.rebalance();
+    //     currentPortfolioValue = await product.portfolioValue();
+    //   });
+
+    it("should rebalance", async () => {
+        await utils.setWhitelists(signers, whitelistRegistry, product.address);
+
+        const floorRatio = 0.6;
+        const multiplier = 2;
+        await product.connect(signers[0]).updateRebalanceParam(floorRatio * 100000,multiplier);
+        await utils.activateProduct(signers[0], product, wMaticContract);
+        
+        await userDeposit(signers, product, wMaticContract, wEthContract, usdcContract, usdPriceModule, whitelistRegistry);
+        for(let i=1; i<signers.length; i++) {
+            expect((await product.balanceOf(signers[i].address))).above(1, "signers #" + i.toString() + " deposit error");
+        }
+        await product.rebalance();
+        
+        let portfolioValue = await product.portfolioValue();
+        let cushion = portfolioValue.mul(10000 - floorRatio*10000).div(10000);
+        let atRisk = portfolioValue.lte(cushion.mul(multiplier)) ? portfolioValue : cushion.mul(multiplier);
+        let safeValue = portfolioValue.sub(atRisk);
+
+        console.log(portfolioValue, safeValue);
+        console.log(await product.assetValue(utils.usdcAddress), await product.assetValue(utils.wethAddress), await product.assetValue(utils.wmaticAddress), await product.assetValue(utils.ghstAddress), await product.assetValue(utils.quickAddress));
+        expect(await product.assetValue(utils.usdcAddress)).closeTo(safeValue, 2, "usdc safe value error");
+        expect((await product.assetValue(utils.wethAddress)).mul(100).div(atRisk)).closeTo(50, 2, "weth weight error");
+        expect((await product.assetValue(utils.wmaticAddress)).mul(100).div(atRisk)).closeTo(40, 2, "wmatic weight error");
+        expect((await product.assetValue(utils.ghstAddress)).mul(100).div(atRisk)).closeTo(5, 2, "ghst weight error");
+        expect((await product.assetValue(utils.quickAddress)).mul(100).div(atRisk)).closeTo(5, 2, "quick weight error");
+
+        await userWithdraw(signers, product, wMaticContract, wEthContract, usdcContract, usdPriceModule);
+
+        for(let i=1; i<signers.length; i++) {
+            expect((await product.balanceOf(signers[i].address))).equal(0, "signers #" + i.toString() + " withdraw error");
+        }
+    })
+})
+
+    // it('단순 deposit, withdraw',async () => {
+    //     const signers = await ethers.getSigners();
+    //     const {
+    //         product,
+    //         wmaticStrategy,
+    //         wethStrategy,
+    //         usdcStrategy,
+    //         ghstStrategy,
+    //         quickStrategy,
+    //         usdPriceModule,
+    //         whitelistRegistry
+    //     } = await utils.deployContracts(signers[0]);
+    //     await utils.setUsdPriceModule(signers[0], usdPriceModule);
+    //     await utils.setProductWithAllStrategy(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+    
+    //     const {
+    //         wMaticContract,
+    //         wEthContract,
+    //         usdcContract,
+    //         quickContract,
+    //         ghstContract,
+    //         swapContract
+    //     } = await utils.distributionTokens(signers);
+    //     await utils.activateProduct(signers[0], product, wMaticContract);
+        
+    //     let dacDepositValue = (await product.shareValue(await product.totalSupply())).toString();
+
+    //     let productPortfolioValue_1 = (await product.portfolioValue()).toString();
+    //     let productBalance_wmatic_1 = (await product.assetBalance(utils.wmaticAddress)).toString();
+    //     let productBalance_weth_1 = (await product.assetBalance(utils.wethAddress)).toString();
+    //     let productBalance_usdc_1 = (await product.assetBalance(utils.usdcAddress)).toString();
+    //     let productValue_wmatic_1 = (await product.assetValue(utils.wmaticAddress)).toString();
+    //     let productValue_weth_1 = (await product.assetValue(utils.wethAddress)).toString();
+    //     let productValue_usdc_1 = (await product.assetValue(utils.usdcAddress)).toString();
+
+    //     // Deposit logic
+    //     const assetChoices = [utils.wmaticAddress, utils.wethAddress, utils.usdcAddress];
+    //     const assetContracts = [wMaticContract, wEthContract, usdcContract];
+    //     let cnt = [100, 100, 100]
+    //     let assetChoices_deposit = [utils.wmaticAddress];
+    //     let assetContracts_deposit = [wMaticContract];
+    //     let assetValue_deposit = ["0"];
+
+    //     for(let i=0; i<300; i++) {
+    //         let rand = Math.floor(Math.random() * 3);
+    //         while(cnt[rand] == 0) {
+    //             rand = Math.floor(Math.random() * 3);
+    //         }
+            
+    //         assetChoices_deposit.push(assetChoices[rand]);
+    //         assetContracts_deposit.push(assetContracts[rand]);
+    //         cnt[rand] -= 1;
+
+    //         rand = Math.floor(Math.random() * (30*(10**18))) + 20*(10**18);
+    //         assetValue_deposit.push(rand.toString());
+    //     }
+
+    //     console.dir(assetChoices_deposit, {'maxArrayLength': null});
+    //     console.dir(assetValue_deposit, {'maxArrayLength': null});
+
+    //     for (let i=1; i<301; i++){
+    //         let depositAddress = assetChoices_deposit[i];
+    //         let depositContract = assetContracts_deposit[i];
+    //         let depositBalance = await usdPriceModule.convertAssetBalance(depositAddress, assetValue_deposit[i]);
+
+    //         expect(product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address)).revertedWith("You're not in whitelist");
+
+    //         await utils.delay(50);
+    //         await utils.setWhitelists([signers[i]], whitelistRegistry, product.address);
+    //         await depositContract.connect(signers[i]).approve(product.address, depositBalance);
+    //         await product.connect(signers[i]).deposit(depositAddress, depositBalance, signers[i].address);
+
+    //     }
+
+    //     let productPortfolioValue_2 = (await product.portfolioValue()).toString();
+    //     let productBalance_wmatic_2 = (await product.assetBalance(utils.wmaticAddress)).toString();
+    //     let productBalance_weth_2 = (await product.assetBalance(utils.wethAddress)).toString();
+    //     let productBalance_usdc_2 = (await product.assetBalance(utils.usdcAddress)).toString();
+    //     let productValue_wmatic_2 = (await product.assetValue(utils.wmaticAddress)).toString();
+    //     let productValue_weth_2 = (await product.assetValue(utils.wethAddress)).toString();
+    //     let productValue_usdc_2 = (await product.assetValue(utils.usdcAddress)).toString();
+
+    //     // withdraw logic
+    //     const assetChoices_withdraw = [utils.wmaticAddress];
+    //     const assetContracts_withdraw = [wMaticContract];
+    //     cnt = [100, 100, 100];
+
+    //     for(let i=0; i<300; i++) {
+    //         let rand = Math.floor(Math.random() * 3);
+    //         while(cnt[rand] == 0) {
+    //             rand = Math.floor(Math.random() * 3);
+    //         }
+            
+    //         assetChoices_withdraw.push(assetChoices[rand]);
+    //         assetContracts_withdraw.push(assetContracts[rand]);
+    //         cnt[rand] -= 1;
+    //     }
+
+    //     console.dir(assetChoices_withdraw, {'maxArrayLength': null});
+
+    //     let assetValue_withdraw = ["0"];
+
+    //     for (let i=1; i<301; i++) {
+    //         let withdrawAddress = assetChoices_withdraw[i];
+    //         let withdrawContract = assetContracts_withdraw[i];
+    //         let beforeUserBalance = await withdrawContract.balanceOf(signers[i].address);
+
+    //         await utils.delay(50);
+    //         await product.connect(signers[i]).withdraw(withdrawAddress, ethers.constants.MaxUint256, signers[i].address, signers[i].address);
+    //         let userWithdrawValue = await usdPriceModule.getAssetUsdValue(withdrawAddress, (await withdrawContract.balanceOf(signers[i].address)).sub(beforeUserBalance));
+
+    //         assetValue_withdraw.push((userWithdrawValue).toString());
+    //     }
+
+
+    //     let dacWithdrawValue = (await product.shareValue(await product.totalSupply())).toString();
+    //     let productPortfolioValue_3 = (await product.portfolioValue()).toString();
+    //     let productBalance_wmatic_3 = (await product.assetBalance(utils.wmaticAddress)).toString();
+    //     let productBalance_weth_3 = (await product.assetBalance(utils.wethAddress)).toString();
+    //     let productBalance_usdc_3 = (await product.assetBalance(utils.usdcAddress)).toString();
+    //     let productValue_wmatic_3 = (await product.assetValue(utils.wmaticAddress)).toString();
+    //     let productValue_weth_3 = (await product.assetValue(utils.wethAddress)).toString();
+    //     let productValue_usdc_3 = (await product.assetValue(utils.usdcAddress)).toString();
+
+    //     let tokenPrice_wmatic = (await usdPriceModule.getAssetUsdPrice(utils.wmaticAddress)).toString();
+    //     let tokenPrice_weth = (await usdPriceModule.getAssetUsdPrice(utils.wethAddress)).toString();
+    //     let tokenPrice_usdc = (await usdPriceModule.getAssetUsdPrice(utils.usdcAddress)).toString();
+    
+    //     ///////////////////////////////////////////////////////////////////////////////////////
+        
+    //     console.log("DEPOSIT_WITHDRAW_WITHOUT_REBALANCING,assetName,assetBalance,assetValue,assetPrice,productPortfolio");
+
+    //     // before deposit
+    //     console.log("BEFORE_DEPOSIT,wMatic", productBalance_wmatic_1, productValue_wmatic_1, tokenPrice_wmatic, productPortfolioValue_1);
+    //     console.log("BEFORE_DEPOSIT,wEth", productBalance_weth_1, productValue_weth_1, tokenPrice_weth, productPortfolioValue_1);
+    //     console.log("BEFORE_DEPOSIT,usdc", productBalance_usdc_1, productValue_usdc_1, tokenPrice_usdc, productPortfolioValue_1);
+    //     console.log("\n");
+
+    //     // after deposit
+    //     console.log("AFTER_DEPOSIT_BEFORE_WITHDRAW,wMatic", productBalance_wmatic_2, productValue_wmatic_2, tokenPrice_wmatic, productPortfolioValue_2);
+    //     console.log("AFTER_DEPOSIT_BEFORE_WITHDRAW,wEth", productBalance_weth_2, productValue_weth_2, tokenPrice_weth, productPortfolioValue_2);
+    //     console.log("AFTER_DEPOSIT_BEFORE_WITHDRAW,usdc", productBalance_usdc_2, productValue_usdc_2, tokenPrice_usdc, productPortfolioValue_2);
+    //     console.log("\n");
+
+    //     // after withdraw
+    //     console.log("AFTER_WITHDRAW,wMatic", productBalance_wmatic_3, productValue_wmatic_3, tokenPrice_wmatic, productPortfolioValue_3);
+    //     console.log("AFTER_WITHDRAW,wEth", productBalance_weth_3, productValue_weth_3, tokenPrice_weth, productPortfolioValue_3);
+    //     console.log("AFTER_WITHDRAW,usd", productBalance_usdc_3, productValue_usdc_3, tokenPrice_usdc, productPortfolioValue_3);
+    //     console.log("\n");
+
+    //     // dac deposit-withdraw value
+    //     console.log("DAC_DEPOSIT_VALUE", dacDepositValue);
+    //     console.log("DAC_WITHDRAW_VALUE", dacWithdrawValue);
+    //     console.log("\n");
+
+    //     // user deposit-withdraw value
+    //     console.log("USER,TOKEN_PAIR,DEPOSIT,WITHDRAW");
+    //     for (let i=1; i<301; i++) {
+    //         console.log(i, assetChoices_deposit[i], "-", assetChoices_withdraw[i], assetValue_deposit[i], assetValue_withdraw[i]);
+    //     }
+
+    // })
