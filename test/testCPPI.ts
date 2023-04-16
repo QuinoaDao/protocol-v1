@@ -3,13 +3,13 @@ import { ethers } from "hardhat";
 import { expect } from "chai";
 import { BigNumber } from "@ethersproject/bignumber";
 import { parseEther, parseUnits } from "ethers/lib/utils";
-import { Product, Strategy, UsdPriceModule, WhitelistRegistry } from "../typechain-types";
+import { CPPIProduct, Product, Strategy, UsdPriceModule, WhitelistRegistry } from "../typechain-types";
 import { Contract } from "ethers";
 
 
 describe("CPPI Product",async () => {
     let signers: SignerWithAddress[];
-    let product: Product;
+    let product: CPPIProduct;
     let wmaticStrategy: Strategy; // Empty
     let wethStrategy: Strategy;
     let usdcStrategy: Strategy;
@@ -124,7 +124,7 @@ describe("CPPI Product",async () => {
             quickStrategy,
             usdPriceModule,
             whitelistRegistry
-         } = await utils.deployContracts(signers[0]));
+         } = await utils.deployContracts("CPPIProduct", signers[0]));
         
         await utils.setUsdPriceModule(signers[0], usdPriceModule);
 
@@ -152,34 +152,6 @@ describe("CPPI Product",async () => {
         expect(multiplier.gt(BigNumber.from(0))).to.be.true;    
     })
 
-    // it("should revert with zero or less floor value when activating", async () => {
-        // const Product = await ethers.getContractFactory("Product");
-        // const dummyProduct = 
-        //     await Product.deploy(
-        //         {
-        //             productName: "Test CPPI Product",
-        //             productSymbol: "TP",
-        //             dacName: "Test DAC",
-        //             dacAddress: signers[0],
-        //             underlyingAssetAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
-        //             floatRatio: 20000, // 20% as float ratio
-        //             deviationThreshold: 500, // 0.5% deviation threshold
-        //         },
-        //         whitelistRegistry.address,
-        //         "0x00",
-        //         usdPriceModule.address,
-        //         [ethers.constants.AddressZero],
-        //         ethers.constants.AddressZero,
-        //         ethers.constants.AddressZero
-        //         )
-        // await dummyProduct.deployed();
-        // await utils.setProductWithAllStrategies(signers[0], dummyProduct, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);    
-    // })
-    
-    // it("should revert with zero or less multiplier", async () => {
-        
-    // })
-
     it("should update rebalance parameters correctly", async () => {
         const newFloorRatio = 50000;
         const newMultiplier = 2;
@@ -191,6 +163,7 @@ describe("CPPI Product",async () => {
     it("should revert if newFloorRatio or newMultiplier is out of range", async function () {
         expect(product.updateRebalanceParam(100001, 1)).to.be.revertedWith("OutOfRange");
         expect(product.updateRebalanceParam(50000, -1)).to.be.revertedWith("OutOfRange");
+        expect(product.updateRebalanceParam(-1, 2)).to.be.revertedWith("OutOfRange");
     });
 
     it("should revert if caller is not the DAC", async function () {
@@ -211,18 +184,9 @@ describe("CPPI Product",async () => {
         expect(dacInitialDepositValue).equal(productInitialPortfolioValue);
     })
 
-    // it('should revert if called by an unauthorized account', async function () {
-        // expect(await product.connect(signers[1]).rebalance()).to.be.reverted;
-    // });
-
-    // it('should update the current portfolio value', async function () {
-    //     // Call the function from an authorized account
-    //     await utils.activateProduct(signers[0], product, wMaticContract);
-
-    //     let currentPortfolioValue = await product.portfolioValue();
-    //     await product.rebalance();
-    //     currentPortfolioValue = await product.portfolioValue();
-    //   });
+    it('should revert if called by an unauthorized account', async function () {
+        expect(product.connect(signers[1]).rebalance()).to.be.revertedWith("Access Not allowed");
+    });
 
     it("should rebalance", async () => {
         await utils.setWhitelists(signers, whitelistRegistry, product.address);
@@ -243,8 +207,6 @@ describe("CPPI Product",async () => {
         let atRisk = portfolioValue.lte(cushion.mul(multiplier)) ? portfolioValue : cushion.mul(multiplier);
         let safeValue = portfolioValue.sub(atRisk);
 
-        console.log(portfolioValue, safeValue);
-        console.log(await product.assetValue(utils.usdcAddress), await product.assetValue(utils.wethAddress), await product.assetValue(utils.wmaticAddress), await product.assetValue(utils.ghstAddress), await product.assetValue(utils.quickAddress));
         expect(await product.assetValue(utils.usdcAddress)).closeTo(safeValue, 2, "usdc safe value error");
         expect((await product.assetValue(utils.wethAddress)).mul(100).div(atRisk)).closeTo(50, 2, "weth weight error");
         expect((await product.assetValue(utils.wmaticAddress)).mul(100).div(atRisk)).closeTo(40, 2, "wmatic weight error");

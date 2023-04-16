@@ -35,9 +35,9 @@ export function delay(ms: number) {
     return new Promise( resolve => setTimeout(resolve, ms) );
 }
 
-export async function deployContracts(dac: SignerWithAddress) {
+export async function deployContracts(productName:string, dac: SignerWithAddress) {
     // Deploy the contract to the test network
-    const Product = await ethers.getContractFactory("Product");
+    const Product = await ethers.getContractFactory(productName);
     const Strategy = await ethers.getContractFactory("Strategy");
     const UsdcStrategy = await ethers.getContractFactory("UsdcStrategy");
     const UsdPriceModule = await ethers.getContractFactory("UsdPriceModule");
@@ -138,6 +138,40 @@ export async function setProductWithAllStrategies(
     await product.connect(dac).updateWeight(
         [usdcAddress, ghstAddress, wmaticAddress, wethAddress, quickAddress], 
         [30000, 5000, 40000, 20000, 5000]
+    );
+  
+    // withdrawal queue update
+    await product.connect(dac).updateWithdrawalQueue([
+      wmaticStrategy.address,
+      wethStrategy.address,
+      usdcStrategy.address,
+      ghstStrategy.address, 
+      quickStrategy.address
+    ]);
+}
+
+export async function setCPPIProductWithAllStrategies(
+    dac: SignerWithAddress, 
+    product: Product,
+    wmaticStrategy: Strategy,
+    wethStrategy: Strategy,
+    usdcStrategy: Strategy,
+    ghstStrategy: Strategy,
+    quickStrategy: Strategy
+) {
+    // strategy add
+    await product.connect(dac).addAsset(ghstAddress);
+    await product.connect(dac).addAsset(quickAddress);
+    await product.connect(dac).addStrategy(wmaticStrategy.address);
+    await product.connect(dac).addStrategy(wethStrategy.address);
+    await product.connect(dac).addStrategy(usdcStrategy.address);
+    await product.connect(dac).addStrategy(ghstStrategy.address);
+    await product.connect(dac).addStrategy(quickStrategy.address);
+  
+    // update weight 해서 원하는 weight까지
+    await product.connect(dac).updateWeight(
+        [ghstAddress, wmaticAddress, wethAddress, quickAddress], 
+        [5000, 40000, 50000, 5000]
     );
   
     // withdrawal queue update

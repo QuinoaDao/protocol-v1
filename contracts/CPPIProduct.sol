@@ -550,25 +550,28 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         uint256 atRisk = currentPortfolioValue < cushion * multiplier ? currentPortfolioValue : cushion * multiplier;
         uint256 safeValue = currentPortfolioValue - atRisk;
         for(uint i=0; i < assets.length; i++){
+            uint256 targetBalance;
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
-                continue;
+                targetBalance = _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue);
             }
             
-            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
-            uint256 currentBalance = assetBalance(assets[i].assetAddress); 
+            targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
+            uint currentBalance = assetBalance(assets[i].assetAddress); 
 
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
 
                 require(_redeemFromStrategy(strategies[assets[i].assetAddress], Math.min(sellAmount, IStrategy(strategies[assets[i].assetAddress]).totalAssets())), "Redeem Failed");
-
+                if(assets[i].assetAddress == _underlyingAssetAddress) {
+                    continue;
+                }
                 IERC20(assets[i].assetAddress).approve(address(swapRouter), sellAmount);
                 _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
         }
 
         for(uint i=0; i < assets.length; i++) {
-            if(assets[i].assetAddress == _underlyingAssetAddress) {
+            if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 continue;
             }
             
@@ -588,6 +591,8 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
                 require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio/100000), "Deposit into Strategy Failed");
             }
         }
+        require(_depositIntoStrategy(strategies[_underlyingAssetAddress], assetBalance(_underlyingAssetAddress)*(100000 - _floatRatio)/100000), "Deposit into Strategy Failed");
+
         
         lastRebalanced = block.timestamp;
         emit Rebalance(address(this), assets, block.timestamp);
