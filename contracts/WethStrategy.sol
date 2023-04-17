@@ -9,6 +9,8 @@ import "./interfaces/IBeefyVault.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "hardhat/console.sol";
+
 contract WethStrategy is IStrategy {
     using SafeERC20 for IERC20;
 
@@ -64,12 +66,20 @@ contract WethStrategy is IStrategy {
     }
 
     function deposit() external override onlyDac {
+        console.log("in deposit func");
+
         uint256 underlyingAmount = _availableUnderlyings();
+        console.log("underlying amount: ", underlyingAmount);
+
         if(underlyingAmount > 0) { 
+            IERC20(underlyingAsset).approve(yield, underlyingAmount);
             _joinPool(underlyingAmount);
+            console.log("join pool is end");
         }
 
         uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
+        console.log("bpt amount: ", bptAmount);
+        
         if(bptAmount > 0){
             IBeefyVault(delegate).depositAll();
         }
@@ -136,6 +146,8 @@ contract WethStrategy is IStrategy {
     }
 
     function _joinPool(uint256 underlyingAmount) internal {
+        console.log("in join pool - underlying amount: ", underlyingAmount);
+
         bytes32 poolId = IBalancerPool(yieldPool).getPoolId();
 
         (address[] memory assets,,) = IBalancerVault(yield).getPoolTokens(poolId);
@@ -145,9 +157,20 @@ contract WethStrategy is IStrategy {
         }
         bytes memory userData = abi.encode(1, amountsIn, 1);
         
+        console.log(assets.length);
+        for(uint256 i=0; i < assets.length; i++) {
+            console.log("Assets #", i, " : ", assets[i]);
+        }
+        console.log(amountsIn.length);
+        for(uint256 i=0; i < amountsIn.length; i++) {
+            console.log("Assets amountsIn #", i, " : ", amountsIn[i]);
+        }
+
         IBalancerVault.JoinPoolRequest memory request = IBalancerVault.JoinPoolRequest(assets, amountsIn, userData, false);
 
+        console.log("call joinPool func");
         IBalancerVault(yield).joinPool(poolId, address(this), address(this), request);
+        console.log("ends");
     }
 
     function _exitPool(uint256 bptAmount) internal {
