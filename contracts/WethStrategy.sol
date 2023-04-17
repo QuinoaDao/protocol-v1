@@ -65,12 +65,16 @@ contract WethStrategy is IStrategy {
 
     function deposit() external override onlyDac {
         uint256 underlyingAmount = _availableUnderlyings();
+
         if(underlyingAmount > 0) { 
+            IERC20(underlyingAsset).approve(yield, underlyingAmount);
             _joinPool(underlyingAmount);
         }
 
         uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
+        
         if(bptAmount > 0){
+            IERC20(yieldPool).approve(delegate, bptAmount);
             IBeefyVault(delegate).depositAll();
         }
         else {
@@ -136,17 +140,26 @@ contract WethStrategy is IStrategy {
     }
 
     function _joinPool(uint256 underlyingAmount) internal {
+        // get pool id
         bytes32 poolId = IBalancerPool(yieldPool).getPoolId();
 
+        // get pool's sorted asset list
         (address[] memory assets,,) = IBalancerVault(yield).getPoolTokens(poolId);
-        uint256[] memory amountsIn = new uint256[](assets.length);
-        for (uint256 i=0; i < amountsIn.length; i++) {
-            amountsIn[i] = assets[i] == underlyingAsset ? underlyingAmount : 0;
+
+        // make maxAmountsIn list for request
+        uint256[] memory maxAmountsIn = new uint256[](assets.length);
+        for (uint256 i=0; i < maxAmountsIn.length; i++) {
+            maxAmountsIn[i] = assets[i] == underlyingAsset ? underlyingAmount : 0;
         }
+
+        // make amountsIn list for request.userData
+        uint256[] memory amountsIn = new uint256[](2);
+        amountsIn[0] = 0;
+        amountsIn[1] = underlyingAmount;
         bytes memory userData = abi.encode(1, amountsIn, 1);
         
-        IBalancerVault.JoinPoolRequest memory request = IBalancerVault.JoinPoolRequest(assets, amountsIn, userData, false);
-
+        // make joinPoolRequest structure and call joinPool func
+        IBalancerVault.JoinPoolRequest memory request = IBalancerVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
         IBalancerVault(yield).joinPool(poolId, address(this), address(this), request);
     }
 
