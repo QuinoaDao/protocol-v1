@@ -8,6 +8,7 @@ import "./SwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "hardhat/console.sol";
 
 error DuplicatedValue(); 
 error ZeroAddress(); 
@@ -552,19 +553,22 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
 
         uint256 cushion = currentPortfolioValue*(100000 - floorRatio)/100000;
         uint256 atRisk = currentPortfolioValue < cushion * multiplier ? currentPortfolioValue : cushion * multiplier;
-
+        uint256 safeValue = currentPortfolioValue - atRisk;
         for(uint i=0; i < assets.length; i++){
+            uint256 targetBalance;
+            uint256 currentBalance;
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
-                require(_redeemFromStrategy(strategies[_underlyingAssetAddress], IStrategy(strategies[_underlyingAssetAddress]).totalAssets()), "Redeem Failed");
+                targetBalance = _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue);
+                uint256 underlyingRedeem = currentBalance > targetBalance ? currentBalance - targetBalance : _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue*_floatRatio/100000);
+                require(_redeemFromStrategy(strategies[_underlyingAssetAddress],Math.min(underlyingRedeem, IStrategy(strategies[_underlyingAssetAddress]).totalAssets())), "Redeem Failed");
                 continue;
             } 
-            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
-            uint currentBalance = assetBalance(assets[i].assetAddress); 
+            targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
+            currentBalance = assetBalance(assets[i].assetAddress); 
 
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
-
-                require(_redeemFromStrategy(strategies[assets[i].assetAddress], Math.min(sellAmount, IStrategy(strategies[assets[i].assetAddress]).totalAssets())), "Redeem Failed");
+                require(_redeemFromStrategy(strategies[assets[i].assetAddress], Math.min(sellAmount,IStrategy(strategies[assets[i].assetAddress]).totalAssets())), "Redeem Failed");
                 IERC20(assets[i].assetAddress).approve(address(swapRouter), sellAmount);
                 _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
