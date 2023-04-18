@@ -40,10 +40,10 @@ contract WethStrategy is IStrategy {
         require(product_ != address(0x0), "Invalid product address");
         product = product_;
 
-        delegate = 0x1d81c50d5aB5f095894c41B41BA49B9873033399; // Beefy vault
+        // balancer & beefy setting
         yield = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // Balancer vault
         yieldPool = 0x65Fe9314bE50890Fb01457be076fAFD05Ff32B9A; // Balancer wstETH StablePool
-
+        delegate = 0x1d81c50d5aB5f095894c41B41BA49B9873033399; // Beefy vault
     }
 
     function totalAssets() public view override returns(uint256) {

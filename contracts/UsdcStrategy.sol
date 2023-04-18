@@ -40,9 +40,9 @@ contract UsdcStrategy is IStrategy {
         product = product_;
 
         // stargate & beefy setting
-        delegate = 0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95; // USDC LP vault (its platform is stargate)
-        yieldPool = 0x1205f31718499dBf1fCa446663B532Ef87481fe1; // USDC pool
         yield = 0x45A01E4e04F14f7A4a6702c74187c5F6222033cd; // stargate router for deposit/withdrawal logic
+        yieldPool = 0x1205f31718499dBf1fCa446663B532Ef87481fe1; // stargate USDC pool
+        delegate = 0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95; // beefy USDC LP pool
     }
 
     function deposit() external override onlyDac { 
