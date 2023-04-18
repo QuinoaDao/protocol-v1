@@ -205,6 +205,19 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         _usdPriceModule = IUsdPriceModule(newUsdPriceModule);
     }
 
+    function updateSwapModuleRouter(address newSwapModuleRouter) external onlyDac {
+        if(newSwapModuleRouter == address(0x0)) revert ZeroAddress();
+        if(newSwapModuleRouter == address(_usdPriceModule)) revert DuplicatedValue();
+        swapRouter = IUniswapV2Router02(newSwapModuleRouter);
+    }
+
+    function updateSwapModuleFactory(address newSwapModuleFactory) external onlyDac {
+        if(newSwapModuleFactory == address(0x0)) revert ZeroAddress();
+        if(newSwapModuleFactory == address(_usdPriceModule)) revert DuplicatedValue();
+        swapFactory = newSwapModuleFactory;
+    }
+
+
     function updateWhitelistRegistry(address newWhitelistRegistry) external onlyDac {
         if(newWhitelistRegistry == address(0x0)) revert ZeroAddress();
         if(newWhitelistRegistry == address(_whitelistRegistry)) revert DuplicatedValue();
@@ -539,23 +552,19 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
 
         uint256 cushion = currentPortfolioValue*(100000 - floorRatio)/100000;
         uint256 atRisk = currentPortfolioValue < cushion * multiplier ? currentPortfolioValue : cushion * multiplier;
-        uint256 safeValue = currentPortfolioValue - atRisk;
+
         for(uint i=0; i < assets.length; i++){
-            uint256 targetBalance;
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
-                targetBalance = _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue);
-            } else {
-                targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
-            }
+                require(_redeemFromStrategy(strategies[_underlyingAssetAddress], IStrategy(strategies[_underlyingAssetAddress]).totalAssets()), "Redeem Failed");
+                continue;
+            } 
+            uint256 targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
             uint currentBalance = assetBalance(assets[i].assetAddress); 
 
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
 
                 require(_redeemFromStrategy(strategies[assets[i].assetAddress], Math.min(sellAmount, IStrategy(strategies[assets[i].assetAddress]).totalAssets())), "Redeem Failed");
-                if(assets[i].assetAddress == _underlyingAssetAddress) {
-                    continue;
-                }
                 IERC20(assets[i].assetAddress).approve(address(swapRouter), sellAmount);
                 _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }
