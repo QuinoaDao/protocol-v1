@@ -8,7 +8,6 @@ import "./SwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "hardhat/console.sol";
 
 error DuplicatedValue(); 
 error ZeroAddress(); 
@@ -46,9 +45,6 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
     address private _dacAddress;
     uint256 private _sinceDate;
     
-    address private _keeperRegistry;
-    uint256 private _rebalanceInterval;
-
     IUsdPriceModule private _usdPriceModule;
     IWhiteListRegistry private _whitelistRegistry;
 
@@ -91,7 +87,6 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
     constructor(
         ProductInfo memory productInfo_,
         address whitelistRegistry_,
-        address keeperRegistry_, 
         address usdPriceModule_, 
         address[] memory assetAddresses_, 
         address swapFactory_, 
@@ -117,9 +112,6 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         if(usdPriceModule_ == address(0x0)) revert ZeroAddress();
         _usdPriceModule = IUsdPriceModule(usdPriceModule_);
 
-        if(keeperRegistry_ == address(0x0)) revert ZeroAddress();
-        _keeperRegistry = keeperRegistry_;
-
         for (uint i=0; i<assetAddresses_.length; i++){
             if(assetAddresses_[i] == address(0x0)) revert ZeroAddress();
             if(_underlyingAssetAddress == assetAddresses_[i]) {
@@ -137,9 +129,9 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         if(swapFactory_ == address(0x0)) revert ZeroAddress();
         swapFactory = swapFactory_;
         if(swapRouter_ == address(0x0)) revert ZeroAddress();
-        swapRouter = IUniswapV2Router02(swapRouter_);
-
-        _rebalanceInterval = 1 days; 
+        swapRouter = IUniswapV2Router02(swapRouter_);        
+        multiplier = 2;
+        floorRatio = 60000;
     }
 
     function currentStrategies() public view override returns(address[] memory) {
@@ -537,7 +529,6 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
     }
 
     function rebalance() public override {
-        require(_msgSender() == _dacAddress || _msgSender() == _keeperRegistry, "Access Not allowed");
         require(isActive, "Product is disabled now");
 
         uint256 currentPortfolioValue = 0;
@@ -553,9 +544,9 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
             uint256 targetBalance;
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 targetBalance = _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue);
+            } else {
+                targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
             }
-            
-            targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
             uint currentBalance = assetBalance(assets[i].assetAddress); 
 
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
