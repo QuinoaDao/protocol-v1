@@ -8,7 +8,6 @@ import "./SwapModule.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "hardhat/console.sol";
 
 error DuplicatedValue(); 
 error ZeroAddress(); 
@@ -131,7 +130,7 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         swapFactory = swapFactory_;
         if(swapRouter_ == address(0x0)) revert ZeroAddress();
         swapRouter = IUniswapV2Router02(swapRouter_);        
-        multiplier = 2;
+        multiplier = 20000;
         floorRatio = 60000;
     }
 
@@ -217,7 +216,6 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         if(newSwapModuleFactory == address(_usdPriceModule)) revert DuplicatedValue();
         swapFactory = newSwapModuleFactory;
     }
-
 
     function updateWhitelistRegistry(address newWhitelistRegistry) external onlyDac {
         if(newWhitelistRegistry == address(0x0)) revert ZeroAddress();
@@ -552,7 +550,7 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         }
 
         uint256 cushion = currentPortfolioValue*(100000 - floorRatio)/100000;
-        uint256 atRisk = currentPortfolioValue < cushion * multiplier ? currentPortfolioValue : cushion * multiplier;
+        uint256 atRisk = currentPortfolioValue < cushion * multiplier / 100000 ? currentPortfolioValue : cushion * multiplier / 100000;
         uint256 safeValue = currentPortfolioValue - atRisk;
         for(uint i=0; i < assets.length; i++){
             uint256 targetBalance;
@@ -598,8 +596,9 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
                 require(_depositIntoStrategy(address(assetStrategy), newFloatBalance - targetBalance*_floatRatio/100000), "Deposit into Strategy Failed");
             }
         }
-        require(_depositIntoStrategy(strategies[_underlyingAssetAddress], assetBalance(_underlyingAssetAddress)*(100000 - _floatRatio)/100000), "Deposit into Strategy Failed");
-
+        if(assetFloatBalance(_underlyingAssetAddress) > assetBalance(_underlyingAssetAddress)*_floatRatio/100000) {
+            require(_depositIntoStrategy(strategies[_underlyingAssetAddress], assetFloatBalance(_underlyingAssetAddress) - assetBalance(_underlyingAssetAddress)*_floatRatio/100000), "Deposit into Strategy Failed");
+        }
         
         lastRebalanced = block.timestamp;
         emit Rebalance(address(this), assets, block.timestamp);
