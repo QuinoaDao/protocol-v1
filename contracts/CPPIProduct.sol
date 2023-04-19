@@ -556,19 +556,22 @@ contract CPPIProduct is ERC20, IProduct, SwapModule {
         uint256 safeValue = currentPortfolioValue - atRisk;
         for(uint i=0; i < assets.length; i++){
             uint256 targetBalance;
-            uint256 currentBalance;
+            uint256 currentBalance = assetBalance(assets[i].assetAddress);
             if(assets[i].assetAddress == _underlyingAssetAddress) { 
                 targetBalance = _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue);
-                uint256 underlyingRedeem = currentBalance > targetBalance ? currentBalance - targetBalance : _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue*_floatRatio/100000);
+                uint256 underlyingRedeem = currentBalance > targetBalance 
+                    ? currentBalance - targetBalance 
+                    : _usdPriceModule.convertAssetBalance(_underlyingAssetAddress, safeValue*_floatRatio/100000);
                 require(_redeemFromStrategy(strategies[_underlyingAssetAddress],Math.min(underlyingRedeem, IStrategy(strategies[_underlyingAssetAddress]).totalAssets())), "Redeem Failed");
                 continue;
             } 
             targetBalance = _usdPriceModule.convertAssetBalance(assets[i].assetAddress, ((assets[i].targetWeight * atRisk) / 100000)); 
-            currentBalance = assetBalance(assets[i].assetAddress); 
 
             if (currentBalance > targetBalance*(100000 + _deviationThreshold)/100000) {
                 uint256 sellAmount = currentBalance - targetBalance;
-                require(_redeemFromStrategy(strategies[assets[i].assetAddress], Math.min(sellAmount,IStrategy(strategies[assets[i].assetAddress]).totalAssets())), "Redeem Failed");
+                if(assetFloatBalance(assets[i].assetAddress) < sellAmount) {
+                    require(_redeemFromStrategy(strategies[assets[i].assetAddress], Math.min(sellAmount,IStrategy(strategies[assets[i].assetAddress]).totalAssets())), "Redeem Failed");
+                }
                 IERC20(assets[i].assetAddress).approve(address(swapRouter), sellAmount);
                 _swapExactInput(sellAmount, assets[i].assetAddress, _underlyingAssetAddress, address(this));
             }

@@ -188,7 +188,38 @@ describe("CPPI Product",async () => {
         expect(product.connect(signers[1]).rebalance()).to.be.revertedWith("Access Not allowed");
     });
 
-    it("should rebalance", async () => {
+    // it("should rebalance", async () => {
+    //     await utils.setWhitelists(signers, whitelistRegistry, product.address);
+
+    //     const floorRatio = 0.6;
+    //     const multiplier = 2;
+    //     await product.connect(signers[0]).updateRebalanceParam(floorRatio * 100000,multiplier);
+    //     await utils.activateProduct(signers[0], product, wMaticContract);
+        
+    //     await userDeposit(signers, product, wMaticContract, wEthContract, usdcContract, usdPriceModule, whitelistRegistry);
+    //     for(let i=1; i<signers.length; i++) {
+    //         expect((await product.balanceOf(signers[i].address))).above(1, "signers #" + i.toString() + " deposit error");
+    //     }
+    //     await product.rebalance();
+        
+    //     let portfolioValue = await product.portfolioValue();
+    //     let cushion = portfolioValue.mul(10000 - floorRatio*10000).div(10000);
+    //     let atRisk = portfolioValue.lte(cushion.mul(multiplier)) ? portfolioValue : cushion.mul(multiplier);
+    //     let safeValue = portfolioValue.sub(atRisk);
+
+    //     expect(await product.assetValue(utils.usdcAddress)).closeTo(safeValue, 2, "usdc safe value error");
+    //     expect((await product.assetValue(utils.wethAddress)).mul(100).div(atRisk)).closeTo(50, 2, "weth weight error");
+    //     expect((await product.assetValue(utils.wmaticAddress)).mul(100).div(atRisk)).closeTo(40, 2, "wmatic weight error");
+    //     expect((await product.assetValue(utils.ghstAddress)).mul(100).div(atRisk)).closeTo(5, 2, "ghst weight error");
+    //     expect((await product.assetValue(utils.quickAddress)).mul(100).div(atRisk)).closeTo(5, 2, "quick weight error");
+
+    //     await userWithdraw(signers, product, wMaticContract, wEthContract, usdcContract, usdPriceModule);
+
+    //     for(let i=1; i<signers.length; i++) {
+    //         expect((await product.balanceOf(signers[i].address))).equal(0, "signers #" + i.toString() + " withdraw error");
+    //     }
+    // })
+    it("should multiple rebalanced", async () => {
         await utils.setWhitelists(signers, whitelistRegistry, product.address);
 
         const floorRatio = 0.6;
@@ -206,15 +237,17 @@ describe("CPPI Product",async () => {
         let cushion = portfolioValue.mul(10000 - floorRatio*10000).div(10000);
         let atRisk = portfolioValue.lte(cushion.mul(multiplier)) ? portfolioValue : cushion.mul(multiplier);
         let safeValue = portfolioValue.sub(atRisk);
-
+        
+        await product.rebalance();
+        
         expect(await product.assetValue(utils.usdcAddress)).closeTo(safeValue, 2, "usdc safe value error");
         expect((await product.assetValue(utils.wethAddress)).mul(100).div(atRisk)).closeTo(50, 2, "weth weight error");
         expect((await product.assetValue(utils.wmaticAddress)).mul(100).div(atRisk)).closeTo(40, 2, "wmatic weight error");
         expect((await product.assetValue(utils.ghstAddress)).mul(100).div(atRisk)).closeTo(5, 2, "ghst weight error");
         expect((await product.assetValue(utils.quickAddress)).mul(100).div(atRisk)).closeTo(5, 2, "quick weight error");
-
+        
         await userWithdraw(signers, product, wMaticContract, wEthContract, usdcContract, usdPriceModule);
-
+        
         for(let i=1; i<signers.length; i++) {
             expect((await product.balanceOf(signers[i].address))).equal(0, "signers #" + i.toString() + " withdraw error");
         }
