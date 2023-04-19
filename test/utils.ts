@@ -59,7 +59,7 @@ export async function deployContracts(productName:string, dac: SignerWithAddress
         deviationThreshold: 5000
     }
   
-    const product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    const product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
     await product.deployed();
   
     const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
