@@ -26,8 +26,6 @@ const PRODUCT_OPTIMIZER = {
   },
 }
 
-
-
 const config: HardhatUserConfig = {
   mocha: {
     timeout: 100000000
@@ -37,7 +35,6 @@ const config: HardhatUserConfig = {
     overrides: {
       "contracts/Product.sol": PRODUCT_OPTIMIZER,
       "contracts/CPPIProduct.sol": PRODUCT_OPTIMIZER,
-      "contracts/archive/customErrorProduct.sol": PRODUCT_OPTIMIZER
     },
   },
   networks: {
