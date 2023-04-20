@@ -15,17 +15,14 @@ describe("rebalance test 2",async () => {
             quickStrategy,
             usdPriceModule,
             whitelistRegistry
-        } = await utils.deployContracts(signers[0]);
+        } = await utils.deployContracts("Product", signers[0]);
         await utils.setUsdPriceModule(signers[0], usdPriceModule);
-        await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, ghstStrategy, quickStrategy, usdcStrategy);
+        await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     
         const {
             wMaticContract,
             wEthContract,
-            usdcContract,
-            quickContract,
-            ghstContract,
-            swapContract
+            usdcContract
         } = await utils.distributionTokens(signers);
         await utils.activateProduct(signers[0], product, wMaticContract);
         

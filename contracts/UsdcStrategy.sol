@@ -40,20 +40,23 @@ contract UsdcStrategy is IStrategy {
         product = product_;
 
         // stargate & beefy setting
-        delegate = 0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95; // USDC LP vault (its platform is stargate)
-        yieldPool = 0x1205f31718499dBf1fCa446663B532Ef87481fe1; // USDC pool
         yield = 0x45A01E4e04F14f7A4a6702c74187c5F6222033cd; // stargate router for deposit/withdrawal logic
+        yieldPool = 0x1205f31718499dBf1fCa446663B532Ef87481fe1; // stargate USDC pool
+        delegate = 0x2F4BBA9fC4F77F16829F84181eB7C8b50F639F95; // beefy USDC LP pool
     }
 
     function deposit() external override onlyDac { 
         uint256 underlyingAmount = _availableUnderlyings();
         if(underlyingAmount > 0) {
             uint256 poolId = IStargatePool(yieldPool).poolId();
+
+            IERC20(underlyingAsset).approve(yield, underlyingAmount);
             IStargateRouter(yield).addLiquidity(poolId, underlyingAmount, address(this));
         }
 
         uint256 starAmount = IStargatePool(yieldPool).balanceOf(address(this));
         if(starAmount > 0) {
+            IERC20(yieldPool).approve(delegate, starAmount);
             IBeefyVault(delegate).depositAll();
         } 
         else {
@@ -83,7 +86,7 @@ contract UsdcStrategy is IStrategy {
             uint256 neededMoo = _calcUnderlyingToMoo(neededAmount);
             uint256 availableMoo = IBeefyVault(delegate).balanceOf(address(this));
 
-            if(neededMoo > availableMoo) {
+            if(neededMoo > availableMoo || assetAmount >= totalAssets()) {
                 neededMoo = availableMoo;
             }
 
@@ -106,7 +109,8 @@ contract UsdcStrategy is IStrategy {
         // withdraw all moo & stargate tokens and transfer usdc tokens to product contracts
         require(!IProduct(product).checkActivation(), "Product is active now");
         
-        _withdraw(type(uint256).max);
+        uint256 availableMoo = IBeefyVault(delegate).balanceOf(address(this));
+        _withdraw(availableMoo);
         
         SafeERC20.safeTransfer(IERC20(underlyingAsset), product, _availableUnderlyings()); // transfer all usdc tokens
         return true;
@@ -125,14 +129,11 @@ contract UsdcStrategy is IStrategy {
 
     function _withdraw(uint256 mooAmount) internal {
         // beefy withdraw
-        if(mooAmount == type(uint256).max) {
-            mooAmount = IBeefyVault(delegate).balanceOf(address(this));
-        }
-        IBeefyVault(delegate).withdraw(mooAmount);
+        if(mooAmount > 0) IBeefyVault(delegate).withdraw(mooAmount);
 
         // stargate withdraw
         uint256 poolId = IStargatePool(yieldPool).poolId();
         uint256 starAmount = IStargatePool(yieldPool).balanceOf(address(this));
-        IStargateRouter(yield).instantRedeemLocal(uint16(poolId), starAmount, address(this));
+        if(starAmount > 0) IStargateRouter(yield).instantRedeemLocal(uint16(poolId), starAmount, address(this));
     }
 }

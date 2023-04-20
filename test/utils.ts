@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Contract } from "ethers";
-import { Product, Strategy, UsdPriceModule, WhitelistRegistry, UsdcStrategy, ERC20, contracts } from "../typechain-types";
+import { Product, Strategy, UsdPriceModule, WhitelistRegistry, UsdcStrategy, WethStrategy, ERC20, contracts } from "../typechain-types";
 
 import wMaticAbi from "../abis/wMaticABI.json";
 import usdcAbi from "../abis/usdcABI.json";
@@ -39,6 +39,7 @@ export async function deployContracts(productName:string, dac: SignerWithAddress
     // Deploy the contract to the test network
     const Product = await ethers.getContractFactory(productName);
     const Strategy = await ethers.getContractFactory("Strategy");
+    const WethStrategy = await ethers.getContractFactory("WethStrategy");
     const UsdcStrategy = await ethers.getContractFactory("UsdcStrategy");
     const UsdPriceModule = await ethers.getContractFactory("UsdPriceModule");
     const WhitelistRegistry = await ethers.getContractFactory("WhitelistRegistry");
@@ -59,12 +60,65 @@ export async function deployContracts(productName:string, dac: SignerWithAddress
         deviationThreshold: 5000
     }
   
-    const product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    let product;
+    if(productName === "CPPIProduct") {
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
+    else { // default productName is Product
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
     await product.deployed();
   
     const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
     await wmaticStrategy.deployed();
-    const wethStrategy = await Strategy.deploy(dac.address, wethAddress, product.address);
+    const wethStrategy = await WethStrategy.deploy(dac.address, product.address);
+    await wethStrategy.deployed();
+    const usdcStrategy = await UsdcStrategy.deploy(dac.address, product.address);
+    await usdcStrategy.deployed();
+    const ghstStrategy = await Strategy.deploy(dac.address, ghstAddress, product.address);
+    await ghstStrategy.deployed();
+    const quickStrategy = await Strategy.deploy(dac.address, quickAddress, product.address);await usdPriceModule.deployed();
+    await quickStrategy.deployed();
+
+    return {
+      product,
+      wmaticStrategy,
+      wethStrategy,
+      usdcStrategy,
+      ghstStrategy,
+      quickStrategy,
+      usdPriceModule,
+      whitelistRegistry
+    };
+}
+
+export async function deployWithCustomInfo(productName: string, dac: SignerWithAddress, productInfo: any) { 
+    // Deploy the contract to the test network
+    const Product = await ethers.getContractFactory(productName);
+    const Strategy = await ethers.getContractFactory("Strategy");
+    const WethStrategy = await ethers.getContractFactory("WethStrategy");
+    const UsdcStrategy = await ethers.getContractFactory("UsdcStrategy");
+    const UsdPriceModule = await ethers.getContractFactory("UsdPriceModule");
+    const WhitelistRegistry = await ethers.getContractFactory("WhitelistRegistry");
+
+    const whitelistRegistry = await WhitelistRegistry.deploy();
+    await whitelistRegistry.deployed();
+  
+    const usdPriceModule = await UsdPriceModule.deploy();
+    await usdPriceModule.deployed();
+  
+    let product
+    if(productName === "CPPIProduct") {
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
+    else { // default productName is Product
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
+    await product.deployed();
+  
+    const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
+    await wmaticStrategy.deployed();
+    const wethStrategy = await WethStrategy.deploy(dac.address, product.address);
     await wethStrategy.deployed();
     const usdcStrategy = await UsdcStrategy.deploy(dac.address, product.address);
     await usdcStrategy.deployed();
@@ -120,14 +174,21 @@ export async function setProductWithAllStrategies(
     dac: SignerWithAddress, 
     product: Product,
     wmaticStrategy: Strategy,
-    wethStrategy: Strategy,
-    usdcStrategy: Strategy,
+    wethStrategy: WethStrategy,
+    usdcStrategy: UsdcStrategy,
     ghstStrategy: Strategy,
     quickStrategy: Strategy
 ) {
     // strategy add
-    await product.connect(dac).addAsset(ghstAddress);
-    await product.connect(dac).addAsset(quickAddress);
+    try{
+
+        await product.connect(dac).addAsset(usdcAddress);
+        await product.connect(dac).addAsset(ghstAddress);
+        await product.connect(dac).addAsset(quickAddress);
+    }
+    catch (error){
+        console.error(error);
+    }
     await product.connect(dac).addStrategy(wmaticStrategy.address);
     await product.connect(dac).addStrategy(wethStrategy.address);
     await product.connect(dac).addStrategy(usdcStrategy.address);
@@ -169,6 +230,7 @@ export async function setCPPIProductWithAllStrategies(
     await product.connect(dac).addStrategy(quickStrategy.address);
   
     // update weight 해서 원하는 weight까지
+    // CPPI는 risky asset만 weight 지정
     await product.connect(dac).updateWeight(
         [ghstAddress, wmaticAddress, wethAddress, quickAddress], 
         [5000, 40000, 50000, 5000]
@@ -188,8 +250,8 @@ export async function setProductWithoutQuickAndGhst(
     dac: SignerWithAddress, 
     product: Product,
     wmaticStrategy: Strategy,
-    wethStrategy: Strategy,
-    usdcStrategy: Strategy,
+    wethStrategy: WethStrategy,
+    usdcStrategy: UsdcStrategy,
 ) {
     // strategy add
     await product.connect(dac).addStrategy(wmaticStrategy.address);

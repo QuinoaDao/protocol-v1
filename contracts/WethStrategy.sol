@@ -40,13 +40,13 @@ contract WethStrategy is IStrategy {
         require(product_ != address(0x0), "Invalid product address");
         product = product_;
 
-        delegate = 0x1d81c50d5aB5f095894c41B41BA49B9873033399; // Beefy vault
+        // balancer & beefy setting
         yield = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // Balancer vault
         yieldPool = 0x65Fe9314bE50890Fb01457be076fAFD05Ff32B9A; // Balancer wstETH StablePool
-
+        delegate = 0x1d81c50d5aB5f095894c41B41BA49B9873033399; // Beefy vault
     }
 
-    function totalAssets() external view override returns(uint256) {
+    function totalAssets() public view override returns(uint256) {
         // return totalAmount;
         uint256 totalAmount = _availableUnderlyings();
         uint256 mooAmount = IBeefyVault(delegate).balanceOf(address(this));
@@ -65,12 +65,16 @@ contract WethStrategy is IStrategy {
 
     function deposit() external override onlyDac {
         uint256 underlyingAmount = _availableUnderlyings();
+
         if(underlyingAmount > 0) { 
+            IERC20(underlyingAsset).approve(yield, underlyingAmount);
             _joinPool(underlyingAmount);
         }
 
         uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
+        
         if(bptAmount > 0){
+            IERC20(yieldPool).approve(delegate, bptAmount);
             IBeefyVault(delegate).depositAll();
         }
         else {
@@ -86,7 +90,7 @@ contract WethStrategy is IStrategy {
             uint256 neededMoo = _calcUnderlyingToMoo(neededAmount);
             uint256 availableMoo = IBeefyVault(delegate).balanceOf(address(this));
 
-            if(neededMoo > availableMoo) {
+            if(neededMoo > availableMoo || assetAmount >= totalAssets()) {
                 neededMoo = availableMoo;
             }
 
@@ -117,7 +121,7 @@ contract WethStrategy is IStrategy {
 
         // exit pool in balancer
         uint256 bptAmount = IBalancerPool(yieldPool).balanceOf(address(this));
-        _exitPool(bptAmount);
+        if(bptAmount > 0) _exitPool(bptAmount);
 
         // transfer all weth to product
         IERC20(underlyingAsset).safeTransfer(product, _availableUnderlyings()); 
@@ -136,17 +140,26 @@ contract WethStrategy is IStrategy {
     }
 
     function _joinPool(uint256 underlyingAmount) internal {
+        // get pool id
         bytes32 poolId = IBalancerPool(yieldPool).getPoolId();
 
+        // get pool's sorted asset list
         (address[] memory assets,,) = IBalancerVault(yield).getPoolTokens(poolId);
-        uint256[] memory amountsIn = new uint256[](assets.length);
-        for (uint256 i=0; i < amountsIn.length; i++) {
-            amountsIn[i] = assets[i] == underlyingAsset ? underlyingAmount : 0;
+
+        // make maxAmountsIn list for request
+        uint256[] memory maxAmountsIn = new uint256[](assets.length);
+        for (uint256 i=0; i < maxAmountsIn.length; i++) {
+            maxAmountsIn[i] = assets[i] == underlyingAsset ? underlyingAmount : 0;
         }
+
+        // make amountsIn list for request.userData
+        uint256[] memory amountsIn = new uint256[](2);
+        amountsIn[0] = 0;
+        amountsIn[1] = underlyingAmount;
         bytes memory userData = abi.encode(1, amountsIn, 1);
         
-        IBalancerVault.JoinPoolRequest memory request = IBalancerVault.JoinPoolRequest(assets, amountsIn, userData, false);
-
+        // make joinPoolRequest structure and call joinPool func
+        IBalancerVault.JoinPoolRequest memory request = IBalancerVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
         IBalancerVault(yield).joinPool(poolId, address(this), address(this), request);
     }
 
