@@ -2,8 +2,9 @@ import * as utils from "./utils";
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { BigNumber } from "@ethersproject/bignumber";
-import { parseEther, parseUnits } from "ethers/lib/utils";
+import { parseEther } from "ethers/lib/utils";
 import { CPPIProduct, Product, Strategy, UsdPriceModule, WhitelistRegistry } from "../typechain-types";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Contract } from "ethers";
 
 
@@ -307,7 +308,7 @@ describe("CPPI Product",async () => {
         expect((await product.assetValue(utils.quickAddress)).mul(100).div(atRisk)).closeTo(5, 2, "quick weight error");
     })
 
-    it.only("should multiple rebalanced with deposit and withdraw with param changing", async () => {
+    it("should multiple rebalanced with deposit and withdraw with param changing", async () => {
         await utils.setWhitelists(signers, whitelistRegistry, product.address);
 
         let floorRatio = 0.6;

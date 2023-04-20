@@ -59,8 +59,15 @@ export async function deployContracts(productName:string, dac: SignerWithAddress
         floatRatio: 20000,
         deviationThreshold: 5000
     }
-  
-    const product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    
+    let product;
+    if(productName === "CPPIProduct"){
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
+    else { // default productName is Product
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
+
     await product.deployed();
   
     const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
@@ -86,9 +93,9 @@ export async function deployContracts(productName:string, dac: SignerWithAddress
     };
 }
 
-export async function deployWithCustomInfo(dac: SignerWithAddress, productInfo: any) { 
+export async function deployWithCustomInfo(productName: string, dac: SignerWithAddress, productInfo: any) { 
     // Deploy the contract to the test network
-    const Product = await ethers.getContractFactory("Product");
+    const Product = await ethers.getContractFactory(productName);
     const Strategy = await ethers.getContractFactory("Strategy");
     const WethStrategy = await ethers.getContractFactory("WethStrategy");
     const UsdcStrategy = await ethers.getContractFactory("UsdcStrategy");
@@ -101,7 +108,13 @@ export async function deployWithCustomInfo(dac: SignerWithAddress, productInfo: 
     const usdPriceModule = await UsdPriceModule.deploy();
     await usdPriceModule.deployed();
   
-    const product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    let product;
+    if(productName === "CPPIProduct"){
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
+    else { // default productName is Product
+        product = await Product.deploy(productInfo, whitelistRegistry.address, usdPriceModule.address, usdPriceModule.address, [wmaticAddress, wethAddress], quickSwapFactory, quickSwapRouter);
+    }
     await product.deployed();
   
     const wmaticStrategy = await Strategy.deploy(dac.address, wmaticAddress, product.address);
@@ -169,6 +182,7 @@ export async function setProductWithAllStrategies(
 ) {
     // strategy add
     try{
+
         await product.connect(dac).addAsset(usdcAddress);
         await product.connect(dac).addAsset(ghstAddress);
         await product.connect(dac).addAsset(quickAddress);
@@ -217,6 +231,7 @@ export async function setCPPIProductWithAllStrategies(
     await product.connect(dac).addStrategy(quickStrategy.address);
   
     // update weight 해서 원하는 weight까지
+    // CPPI는 risky asset만 weight 지정
     await product.connect(dac).updateWeight(
         [ghstAddress, wmaticAddress, wethAddress, quickAddress], 
         [5000, 40000, 50000, 5000]
