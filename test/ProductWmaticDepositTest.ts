@@ -15,7 +15,7 @@ describe('activation test',async () => {
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
 
     const wMaticContract = new ethers.Contract(utils.wmaticAddress, utils.wMaticAbi, dac);
@@ -98,7 +98,7 @@ describe('activation test',async () => {
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     
@@ -131,7 +131,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
   
@@ -150,7 +150,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     const {
@@ -191,7 +191,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
@@ -240,7 +240,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
@@ -291,7 +291,7 @@ describe('Deposit wmatic tokens into product contract & withdraw wmatic tokens',
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     
@@ -341,7 +341,7 @@ describe('decimal 18 in-out',async () => {
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
@@ -377,7 +377,7 @@ describe.only('wmatic in - usdc out',async () => {
         quickStrategy,
         usdPriceModule,
         whitelistRegistry
-    } = await utils.deployContracts(dac);
+    } = await utils.deployContracts("Product", dac);
     await utils.setUsdPriceModule(dac, usdPriceModule);
     await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 

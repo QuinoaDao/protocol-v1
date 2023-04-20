@@ -15,7 +15,7 @@ describe("random token deposit & random token withdraw test",async () => {
             quickStrategy,
             usdPriceModule,
             whitelistRegistry
-        } = await utils.deployContracts(signers[0]);
+        } = await utils.deployContracts("Product", signers[0]);
         await utils.setUsdPriceModule(signers[0], usdPriceModule);
         await utils.setProductWithAllStrategies(signers[0], product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
     

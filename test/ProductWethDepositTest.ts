@@ -16,7 +16,7 @@ describe('Deposit weth tokens into product contract',async () => {
             quickStrategy,
             usdPriceModule,
             whitelistRegistry
-        } = await utils.deployContracts(dac);
+        } = await utils.deployContracts("Product", dac);
         await utils.setUsdPriceModule(dac, usdPriceModule);
         await utils.setProductWithAllStrategies(dac, product, wmaticStrategy, wethStrategy, usdcStrategy, ghstStrategy, quickStrategy);
 
