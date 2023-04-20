@@ -181,6 +181,7 @@ export async function setProductWithAllStrategies(
 ) {
     // strategy add
     try{
+
         await product.connect(dac).addAsset(usdcAddress);
         await product.connect(dac).addAsset(ghstAddress);
         await product.connect(dac).addAsset(quickAddress);
@@ -229,6 +230,7 @@ export async function setCPPIProductWithAllStrategies(
     await product.connect(dac).addStrategy(quickStrategy.address);
   
     // update weight 해서 원하는 weight까지
+    // CPPI는 risky asset만 weight 지정
     await product.connect(dac).updateWeight(
         [ghstAddress, wmaticAddress, wethAddress, quickAddress], 
         [5000, 40000, 50000, 5000]
