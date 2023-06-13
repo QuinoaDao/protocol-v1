@@ -9,3 +9,6 @@ typechain-types
 cache
 artifacts
 
+# type chain source
+typechain-types
+src/types
